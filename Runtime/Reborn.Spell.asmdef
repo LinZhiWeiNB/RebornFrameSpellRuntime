@@ -1,0 +1,21 @@
+{
+  "name": "reborn.spell",
+  "rootNamespace": "RebornFrame.Spell",
+    "references": [
+    "Unity.Entities",
+    "Unity.Collections",
+    "Unity.Burst",
+    "reborn.protobuf"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [
+    "FixedMathSharp.dll"
+  ],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

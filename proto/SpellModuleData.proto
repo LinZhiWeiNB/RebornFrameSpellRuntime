@@ -1,0 +1,108 @@
+syntax = "proto3";
+
+option csharp_namespace = "RebornFrame.Spell";
+
+// 一份法术模块数据。多个开发者可以各提供一份，启动时合并。
+message SpellModuleData {
+  repeated AttributeDefinitionConfig attributes = 1;
+  repeated TagDefinitionConfig tags = 2;
+  repeated SpellData spells = 3;
+}
+
+// 一条法术。完整法术还没定，目前只包含它持有的 Buff。
+message SpellData {
+  repeated BuffDefinitionConfig buffs = 1;
+}
+
+// 自定义属性。默认值属于单位预设，不写在这里。
+message AttributeDefinitionConfig {
+  uint64 id = 1;
+  // AttributeValueKind：1 Int32，2 Int64，3 Fixed64，4 Bool。
+  int32 value_kind = 2;
+  // AttributeBehavior：1 Resource，2 Numeric，3 Marker。
+  int32 behavior = 3;
+  bool non_negative = 4;
+  bool scale_current_with_max = 5;
+}
+
+// 自定义 Tag。parent_id 为 0 表示根节点。
+message TagDefinitionConfig {
+  uint64 id = 1;
+  uint64 parent_id = 2;
+}
+
+// 一条 Buff 定义，字段与 BuffDefinitionData 对应。
+message BuffDefinitionConfig {
+  uint64 id = 1;
+  int32 duration_policy = 2;
+  int32 identity = 3;
+  int32 max_stacks = 4;
+  int32 overflow = 5;
+  int32 duration_mode = 6;
+  int32 refresh_policy = 7;
+  int32 period_reset = 8;
+  uint64 exclusive_group = 9;
+  int32 exclusive_priority = 10;
+  int32 duration_scope = 11;
+  uint64 duration_iterator = 12;
+  int32 duration_steps = 13;
+  int32 requirement = 14;
+  repeated uint64 required_tags = 15;
+  repeated uint64 immunity_tags = 16;
+  repeated uint64 granted_tags = 17;
+  repeated BuffEffectConfig create_effects = 18;
+  repeated BuffEffectConfig update_effects = 19;
+  repeated BuffEffectConfig remove_effects = 20;
+  repeated BuffPeriodicTriggerConfig periodic_triggers = 21;
+  repeated BuffSignalTriggerConfig signal_triggers = 22;
+}
+
+// Buff 上的一条效果。parameters 是该 effect_id 自己的 message 字节。
+message BuffEffectConfig {
+  uint64 effect_id = 1;
+  uint32 version = 2;
+  bytes parameters = 3;
+}
+
+// 周期触发器。
+message BuffPeriodicTriggerConfig {
+  int32 scope = 1;
+  uint64 iterator_id = 2;
+  int32 interval = 3;
+  repeated BuffEffectConfig effects = 4;
+}
+
+// 外部信号触发器。
+message BuffSignalTriggerConfig {
+  uint64 signal_id = 1;
+  int32 interval = 2;
+  int32 query = 3;
+  repeated uint64 tags = 4;
+  repeated BuffEffectConfig effects = 5;
+}
+
+// 登记属性修改器的参数。
+message AddModifierBuffEffectConfig {
+  uint64 attribute = 1;
+  int32 channel = 2;
+  int32 operation = 3;
+  int32 order = 4;
+  int32 modifier_local_id = 5;
+  int64 value_bits = 6;
+}
+
+// 提交资源当前值变化的参数。
+message RequestCurrentValueBuffEffectConfig {
+  uint64 attribute = 1;
+  int64 delta_bits = 2;
+}
+
+// 授予 Tag 的参数。
+message GrantTagBuffEffectConfig {
+  uint64 tag = 1;
+}
+
+// 移除 Tag 的参数。
+message RemoveTagBuffEffectConfig {
+  uint64 tag = 1;
+}

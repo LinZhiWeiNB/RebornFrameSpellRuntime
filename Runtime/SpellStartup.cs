@@ -1,0 +1,378 @@
+using System;
+using System.Collections.Generic;
+using Google.Protobuf;
+using Unity.Collections;
+using Unity.Entities;
+
+namespace RebornFrame.Spell
+{
+    /// <summary>
+    /// 一场战斗的 Spell 启动器。多次加入的目录在 <see cref="Start"/> 时合并，
+    /// 相同定义保留一份，同一 ID 的冲突定义会失败。
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Start"/> 不接收 Blob。它冻结已加入的定义，创建 Tag、属性和 Buff
+    /// 目录单例，并装配两条流水线。Blob 由本对象持有，<see cref="Dispose"/> 时释放。
+    /// World 仍由调用方持有。
+    /// </remarks>
+    public sealed class SpellStartup : IDisposable
+    {
+        readonly List<TagDefinition> _tags = new List<TagDefinition>();
+        readonly List<AttributeDefinition> _attributes = new List<AttributeDefinition>();
+        readonly List<UnitAttributePresetEntry> _layout = new List<UnitAttributePresetEntry>();
+        readonly List<BuffDefinitionData> _buffs = new List<BuffDefinitionData>();
+
+        World _world;
+        AttributePipeline _attributePipeline;
+        BuffPipeline _buffPipeline;
+        BlobAssetReference<TagCatalogBlob> _tagCatalog;
+        BlobAssetReference<AttributeCatalogBlob> _attributeCatalog;
+        BlobAssetReference<AttributeLayoutBlob> _attributeLayout;
+        BlobAssetReference<BuffCatalogBlob> _buffCatalog;
+        bool _started;
+        bool _disposed;
+
+        /// <summary>
+        /// 追加一批 Tag。可以多次调用，相同定义会在启动时合并。
+        /// </summary>
+        /// <param name="definitions">待加入的 Tag 定义。</param>
+        /// <exception cref="ArgumentNullException">定义列表为 null。</exception>
+        /// <exception cref="InvalidOperationException">已经启动或已经释放。</exception>
+        public void AddTags(IReadOnlyList<TagDefinition> definitions)
+        {
+            ThrowIfClosed();
+            if (definitions == null)
+            {
+                throw new ArgumentNullException(nameof(definitions));
+            }
+
+            for (int index = 0; index < definitions.Count; index++)
+            {
+                _tags.Add(definitions[index]);
+            }
+        }
+
+        /// <summary>
+        /// 追加一批属性定义。可以多次调用，相同定义会在启动时合并。
+        /// </summary>
+        /// <param name="definitions">待加入的属性定义。</param>
+        /// <exception cref="ArgumentNullException">定义列表为 null。</exception>
+        /// <exception cref="InvalidOperationException">已经启动或已经释放。</exception>
+        public void AddAttributes(IReadOnlyList<AttributeDefinition> definitions)
+        {
+            ThrowIfClosed();
+            if (definitions == null)
+            {
+                throw new ArgumentNullException(nameof(definitions));
+            }
+
+            for (int index = 0; index < definitions.Count; index++)
+            {
+                _attributes.Add(definitions[index]);
+            }
+        }
+
+        /// <summary>
+        /// 追加单位共享属性布局。可以多次调用，相同属性且默认值一致的项会合并。
+        /// </summary>
+        /// <param name="preset">单位预设。</param>
+        /// <exception cref="ArgumentNullException">预设列表为 null。</exception>
+        /// <exception cref="InvalidOperationException">已经启动或已经释放。</exception>
+        public void AddAttributeLayout(IReadOnlyList<UnitAttributePresetEntry> preset)
+        {
+            ThrowIfClosed();
+            if (preset == null)
+            {
+                throw new ArgumentNullException(nameof(preset));
+            }
+
+            for (int index = 0; index < preset.Count; index++)
+            {
+                _layout.Add(preset[index]);
+            }
+        }
+
+        /// <summary>
+        /// 追加一批 Buff 定义。可以多次调用，内容一致的定义会在启动时合并。
+        /// </summary>
+        /// <param name="definitions">待加入的 Buff 定义。</param>
+        /// <exception cref="ArgumentNullException">定义列表为 null。</exception>
+        /// <exception cref="ArgumentException">列表中含有 null 定义。</exception>
+        /// <exception cref="InvalidOperationException">已经启动或已经释放。</exception>
+        public void AddBuffs(IReadOnlyList<BuffDefinitionData> definitions)
+        {
+            ThrowIfClosed();
+            if (definitions == null)
+            {
+                throw new ArgumentNullException(nameof(definitions));
+            }
+
+            for (int index = 0; index < definitions.Count; index++)
+            {
+                if (definitions[index] == null)
+                {
+                    throw new ArgumentException("Buff 定义不能为 null。", nameof(definitions));
+                }
+
+                _buffs.Add(definitions[index]);
+            }
+        }
+
+        /// <summary>
+        /// 合并一份法术模块数据。项目可以多次调用，把不同开发者的数据加进来。
+        /// </summary>
+        /// <param name="data">法术模块数据。</param>
+        /// <exception cref="ArgumentNullException">数据为 null。</exception>
+        /// <exception cref="ArgumentException">效果版本超出范围。</exception>
+        /// <exception cref="InvalidOperationException">已经启动或已经释放。</exception>
+        public void AddModuleData(SpellModuleData data)
+        {
+            ThrowIfClosed();
+            if (data == null)
+            {
+                throw new ArgumentNullException(nameof(data));
+            }
+
+            List<TagDefinition> tags = SpellModuleDataImport.Tags(data);
+            List<AttributeDefinition> attributes = SpellModuleDataImport.Attributes(data);
+            List<BuffDefinitionData> buffs = SpellModuleDataImport.Buffs(data);
+            AddTags(tags);
+            AddAttributes(attributes);
+            AddBuffs(buffs);
+        }
+
+        /// <summary>
+        /// 合并一份序列化后的法术模块数据。
+        /// </summary>
+        /// <param name="bytes"><see cref="SpellModuleData"/> 的 protobuf 字节。</param>
+        /// <exception cref="ArgumentNullException">字节为 null。</exception>
+        /// <exception cref="ArgumentException">效果版本超出范围。</exception>
+        /// <exception cref="InvalidOperationException">已经启动或已经释放。</exception>
+        public void AddModuleData(byte[] bytes)
+        {
+            ThrowIfClosed();
+            if (bytes == null)
+            {
+                throw new ArgumentNullException(nameof(bytes));
+            }
+
+            AddModuleData(SpellModuleData.Parser.ParseFrom(bytes));
+        }
+
+        /// <summary>
+        /// 冻结已加入的目录，创建三个目录单例，并装配属性和 Buff 流水线。
+        /// </summary>
+        /// <param name="world">承载本场战斗的有效 World。</param>
+        /// <exception cref="ArgumentNullException">World 为 null。</exception>
+        /// <exception cref="ArgumentException">World 已销毁，或目录定义冲突。</exception>
+        /// <exception cref="InvalidOperationException">已经启动、已经释放，或 World 里已有对应目录。</exception>
+        public void Start(World world)
+        {
+            ThrowIfClosed();
+            if (_started)
+            {
+                throw new InvalidOperationException("Spell 已经启动。");
+            }
+
+            if (world == null)
+            {
+                throw new ArgumentNullException(nameof(world));
+            }
+
+            if (!world.IsCreated)
+            {
+                throw new ArgumentException("World 已被销毁。", nameof(world));
+            }
+
+            BlobAssetReference<TagCatalogBlob> tags = default;
+            BlobAssetReference<AttributeCatalogBlob> attributes = default;
+            BlobAssetReference<AttributeLayoutBlob> layout = default;
+            BlobAssetReference<BuffCatalogBlob> buffs = default;
+            Entity tagEntity = Entity.Null;
+            Entity attributeEntity = Entity.Null;
+            Entity buffEntity = Entity.Null;
+            AttributePipeline attributePipeline = null;
+            BuffPipeline buffPipeline = null;
+            try
+            {
+                tags = TagCatalog.Build(_tags, Allocator.Persistent);
+                attributes = AttributeCatalog.Build(_attributes, Allocator.Persistent);
+                layout = AttributeCatalog.BuildLayout(attributes, MergeLayout(), Allocator.Persistent);
+                buffs = BuffCatalog.Build(_buffs, Allocator.Persistent, out IMessage[] runtimeEffects);
+
+                EntityManager entityManager = world.EntityManager;
+                tagEntity = AttributeAccess.CreateTagCatalogSingleton(entityManager, tags);
+                attributeEntity = AttributeAccess.CreateCatalogSingleton(entityManager, attributes);
+                buffEntity = BuffAccess.CreateCatalogSingleton(entityManager, buffs, runtimeEffects);
+                attributePipeline = AttributePipeline.Create(world);
+                buffPipeline = BuffPipeline.Create(world);
+            }
+            catch
+            {
+                buffPipeline?.Dispose();
+                attributePipeline?.Dispose();
+                if (world.IsCreated)
+                {
+                    EntityManager entityManager = world.EntityManager;
+                    DestroyIfExists(entityManager, buffEntity);
+                    DestroyIfExists(entityManager, attributeEntity);
+                    DestroyIfExists(entityManager, tagEntity);
+                }
+
+                Dispose(ref buffs);
+                Dispose(ref layout);
+                Dispose(ref attributes);
+                Dispose(ref tags);
+                throw;
+            }
+
+            _world = world;
+            _tagCatalog = tags;
+            _attributeCatalog = attributes;
+            _attributeLayout = layout;
+            _buffCatalog = buffs;
+            _attributePipeline = attributePipeline;
+            _buffPipeline = buffPipeline;
+            _started = true;
+        }
+
+        /// <summary>
+        /// 按合同顺序推进一个逻辑 tick：先 Buff，再属性。
+        /// </summary>
+        /// <param name="logicTick">当前逻辑 tick，必须大于等于 0。</param>
+        /// <exception cref="InvalidOperationException">尚未启动或已经释放。</exception>
+        public void Tick(int logicTick)
+        {
+            ThrowIfNotStarted();
+            _buffPipeline.UpdateOnce(logicTick);
+            _attributePipeline.UpdateOnce();
+        }
+
+        /// <summary>
+        /// 用启动时冻结的共享布局初始化单位，并写入 Buff 稳定 ID。
+        /// </summary>
+        /// <param name="entity">待初始化的单位。</param>
+        /// <param name="stableId">非零且当前战斗内唯一的稳定 ID。</param>
+        /// <exception cref="InvalidOperationException">尚未启动或已经释放。</exception>
+        public void InitializeUnit(Entity entity, ulong stableId)
+        {
+            InitializeUnit(entity, stableId, null);
+        }
+
+        /// <summary>
+        /// 初始化单位，并覆盖资源的初始当前值。覆盖不会产生结算事件。
+        /// </summary>
+        /// <param name="entity">待初始化的单位。</param>
+        /// <param name="stableId">非零且当前战斗内唯一的稳定 ID。</param>
+        /// <param name="currentOverrides">资源初始当前值；null 表示不覆盖。</param>
+        /// <exception cref="InvalidOperationException">尚未启动或已经释放。</exception>
+        public void InitializeUnit(
+            Entity entity,
+            ulong stableId,
+            IReadOnlyList<UnitResourceCurrentOverride> currentOverrides)
+        {
+            ThrowIfNotStarted();
+            EntityManager entityManager = _world.EntityManager;
+            AttributeAccess.InitializeUnit(entityManager, entity, _attributeLayout, currentOverrides);
+            BuffAccess.InitializeUnit(entityManager, entity, stableId);
+        }
+
+        /// <summary>
+        /// 销毁两条流水线并释放本对象持有的目录。重复调用不会产生效果。
+        /// </summary>
+        public void Dispose()
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+            _buffPipeline?.Dispose();
+            _attributePipeline?.Dispose();
+            _buffPipeline = null;
+            _attributePipeline = null;
+            Dispose(ref _buffCatalog);
+            Dispose(ref _attributeLayout);
+            Dispose(ref _attributeCatalog);
+            Dispose(ref _tagCatalog);
+        }
+
+        void ThrowIfClosed()
+        {
+            if (_disposed)
+            {
+                throw new ObjectDisposedException(nameof(SpellStartup));
+            }
+
+            if (_started)
+            {
+                throw new InvalidOperationException("Spell 已经启动，不能再加入目录。");
+            }
+        }
+
+        void ThrowIfNotStarted()
+        {
+            if (_disposed)
+            {
+                throw new ObjectDisposedException(nameof(SpellStartup));
+            }
+
+            if (!_started)
+            {
+                throw new InvalidOperationException("Spell 尚未启动。");
+            }
+        }
+
+        List<UnitAttributePresetEntry> MergeLayout()
+        {
+            var sorted = new List<UnitAttributePresetEntry>(_layout);
+            sorted.Sort(PresetComparer.Instance);
+            var unique = new List<UnitAttributePresetEntry>(sorted.Count);
+            for (int index = 0; index < sorted.Count; index++)
+            {
+                UnitAttributePresetEntry entry = sorted[index];
+                if (unique.Count == 0 || unique[unique.Count - 1].Id != entry.Id)
+                {
+                    unique.Add(entry);
+                    continue;
+                }
+
+                if (!unique[unique.Count - 1].DefaultValue.Equals(entry.DefaultValue))
+                {
+                    throw new ArgumentException($"属性 {entry.Id} 的单位默认值冲突。");
+                }
+            }
+
+            return unique;
+        }
+
+        static void DestroyIfExists(EntityManager entityManager, Entity entity)
+        {
+            if (entityManager.Exists(entity))
+            {
+                entityManager.DestroyEntity(entity);
+            }
+        }
+
+        static void Dispose<T>(ref BlobAssetReference<T> blob)
+            where T : unmanaged
+        {
+            if (blob.IsCreated)
+            {
+                blob.Dispose();
+                blob = default;
+            }
+        }
+
+        sealed class PresetComparer : IComparer<UnitAttributePresetEntry>
+        {
+            internal static readonly PresetComparer Instance = new PresetComparer();
+
+            public int Compare(UnitAttributePresetEntry left, UnitAttributePresetEntry right)
+            {
+                return left.Id.CompareTo(right.Id);
+            }
+        }
+    }
+}
