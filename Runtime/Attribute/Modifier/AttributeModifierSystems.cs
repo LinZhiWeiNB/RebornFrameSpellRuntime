@@ -43,13 +43,12 @@ namespace RebornFrame.Spell
                 }
 
                 DynamicBuffer<AttributeModifierState> unitStates = states[reference.Unit];
-                int stateIndex = FindState(unitStates, reference.Slot);
-                if (stateIndex < 0)
+                if ((uint)reference.Slot >= (uint)unitStates.Length)
                 {
                     continue;
                 }
 
-                ref AttributeModifierState modifier = ref unitStates.ElementAt(stateIndex);
+                ref AttributeModifierState modifier = ref unitStates.ElementAt(reference.Slot);
                 if (modifier.Dirty == 0)
                 {
                     continue;
@@ -60,19 +59,6 @@ namespace RebornFrame.Spell
             }
 
             dirty.Clear();
-        }
-
-        static int FindState(DynamicBuffer<AttributeModifierState> states, int slot)
-        {
-            for (int index = 0; index < states.Length; index++)
-            {
-                if (states[index].Slot == slot)
-                {
-                    return index;
-                }
-            }
-
-            return -1;
         }
 
         static AttributeModifierCalcInput CreateInput(Entity unit, in AttributeModifierState modifier)

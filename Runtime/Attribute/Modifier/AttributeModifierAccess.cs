@@ -31,7 +31,8 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        /// 给单位挂上修改器状态、贡献和重载堆。资源与数值属性立刻写入配置基础值。
+        /// 给单位挂上修改器状态、贡献和重载堆。
+        /// 状态缓冲与布局等长，下标就是槽位。标记属性也占一格，基础值来自配置默认值。
         /// </summary>
         /// <param name="entityManager">单位所在 World 的实体管理器。</param>
         /// <param name="entity">待挂载的单位。</param>
@@ -52,15 +53,9 @@ namespace RebornFrame.Spell
             DynamicBuffer<AttributeModifierState> states =
                 entityManager.AddBuffer<AttributeModifierState>(entity);
             ref BlobArray<AttributeLayoutEntry> entries = ref layout.Value.Entries;
+            states.EnsureCapacity(entries.Length);
             for (int slot = 0; slot < entries.Length; slot++)
             {
-                AttributeBehavior behavior = entries[slot].Definition.Behavior;
-                if (behavior != AttributeBehavior.Resource
-                    && behavior != AttributeBehavior.Numeric)
-                {
-                    continue;
-                }
-
                 states.Add(CreateState(slot, entries[slot], stableId));
             }
         }
@@ -221,8 +216,8 @@ namespace RebornFrame.Spell
                     continue;
                 }
 
-                int stateIndex = FindState(states, contribution.Slot);
-                if (stateIndex >= 0)
+                int stateIndex = contribution.Slot;
+                if ((uint)stateIndex < (uint)states.Length)
                 {
                     ref AttributeModifierState state = ref states.ElementAt(stateIndex);
                     if (IsOverride(contribution.Channel))
@@ -340,24 +335,13 @@ namespace RebornFrame.Spell
             states = entityManager.GetBuffer<AttributeModifierState>(entity);
             contributions = entityManager.GetBuffer<AttributeModifierContribution>(entity);
             heap = entityManager.GetBuffer<AttributeModifierHeapNode>(entity);
-            stateIndex = FindState(states, slot);
-            if (stateIndex < 0)
+            // 初始化时状态与布局等长，槽位就是状态下标。
+            if ((uint)slot >= (uint)states.Length)
             {
-                if (entry.Definition.Behavior != AttributeBehavior.Marker)
-                {
-                    return false;
-                }
-
-                ulong stableId = 0;
-                if (entityManager.HasComponent<SpellStableId>(entity))
-                {
-                    stableId = entityManager.GetComponentData<SpellStableId>(entity).Value;
-                }
-
-                states.Add(CreateState(slot, entry, stableId));
-                stateIndex = states.Length - 1;
+                return false;
             }
 
+            stateIndex = slot;
             return true;
         }
 
@@ -418,19 +402,6 @@ namespace RebornFrame.Spell
                 Unit = entity,
                 Slot = slot,
             });
-        }
-
-        static int FindState(DynamicBuffer<AttributeModifierState> states, int slot)
-        {
-            for (int index = 0; index < states.Length; index++)
-            {
-                if (states[index].Slot == slot)
-                {
-                    return index;
-                }
-            }
-
-            return -1;
         }
 
         static int FindContribution(

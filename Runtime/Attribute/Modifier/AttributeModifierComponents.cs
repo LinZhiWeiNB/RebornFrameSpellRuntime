@@ -3,7 +3,8 @@ using Unity.Entities;
 namespace RebornFrame.Spell
 {
     /// <summary>
-    /// 一个属性的修改器热状态。通道合计在提交时维护，Tick 直接读取。
+    /// 一个属性的修改器热状态。缓冲与单位布局等长，下标就是槽位。
+    /// 通道合计在提交时维护，Tick 直接读取。
     /// </summary>
     [InternalBufferCapacity(8)]
     internal struct AttributeModifierState : IBufferElementData
