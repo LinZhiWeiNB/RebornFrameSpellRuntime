@@ -123,16 +123,13 @@ namespace RebornFrame.Spell
                         Channel = channel,
                         ValueBits = valueBits,
                         Weight = storedWeight,
-                        HeapIndex = -1,
                     });
                 }
 
                 AttributeModifierHeap.Upsert(
                     heap,
-                    contributions,
                     states,
                     stateIndex,
-                    state.Slot,
                     channel,
                     buffInstanceId,
                     storedWeight,
@@ -169,7 +166,6 @@ namespace RebornFrame.Spell
                         Channel = channel,
                         ValueBits = valueBits,
                         Weight = 0,
-                        HeapIndex = -1,
                     });
                 }
 
@@ -225,9 +221,6 @@ namespace RebornFrame.Spell
                         GetHeap(ref state, contribution.Channel, out int start, out int count);
                         bool alive = AttributeModifierHeap.Remove(
                             heap,
-                            contributions,
-                            contribution.Slot,
-                            contribution.Channel,
                             buffInstanceId,
                             ref start,
                             ref count,
