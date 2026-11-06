@@ -13,10 +13,8 @@ namespace RebornFrame.Spell
         /// 插入或替换一条重载，并返回新的堆顶。
         /// </summary>
         /// <param name="heap">单位上的堆节点缓冲。</param>
-        /// <param name="contributions">单位上的贡献缓冲。</param>
         /// <param name="states">单位上的修改器状态，压缩堆时回写起点。</param>
         /// <param name="stateIndex">当前属性状态的下标。</param>
-        /// <param name="slot">属性槽位。</param>
         /// <param name="channel">重载通道。</param>
         /// <param name="buffInstanceId">Buff 实例 ID。</param>
         /// <param name="weight">权重。</param>
@@ -25,10 +23,8 @@ namespace RebornFrame.Spell
         /// <returns>堆非空时为 true。</returns>
         internal static bool Upsert(
             DynamicBuffer<AttributeModifierHeapNode> heap,
-            DynamicBuffer<AttributeModifierContribution> contributions,
             DynamicBuffer<AttributeModifierState> states,
             int stateIndex,
-            int slot,
             AttributeModifierChannel channel,
             long buffInstanceId,
             int weight,
@@ -44,8 +40,8 @@ namespace RebornFrame.Spell
                 node.Weight = weight;
                 node.ValueBits = valueBits;
                 heap[start + relative] = node;
-                SiftUp(heap, contributions, slot, channel, start, count, relative);
-                SiftDown(heap, contributions, slot, channel, start, count, relative);
+                SiftUp(heap, start, count, relative);
+                SiftDown(heap, start, count, relative);
             }
             else
             {
@@ -58,8 +54,7 @@ namespace RebornFrame.Spell
                     ValueBits = valueBits,
                 };
                 count++;
-                SetContributionIndex(contributions, slot, channel, buffInstanceId, count - 1);
-                SiftUp(heap, contributions, slot, channel, start, count, count - 1);
+                SiftUp(heap, start, count, count - 1);
             }
 
             SetRange(ref state, channel, start, count);
@@ -71,9 +66,6 @@ namespace RebornFrame.Spell
         /// 按 Buff 实例移除重载节点。
         /// </summary>
         /// <param name="heap">单位上的堆节点缓冲。</param>
-        /// <param name="contributions">单位上的贡献缓冲。</param>
-        /// <param name="slot">属性槽位。</param>
-        /// <param name="channel">重载通道。</param>
         /// <param name="buffInstanceId">Buff 实例 ID。</param>
         /// <param name="start">堆起点，移除后可能不变。</param>
         /// <param name="count">堆长度。</param>
@@ -81,9 +73,6 @@ namespace RebornFrame.Spell
         /// <returns>移除后堆仍非空时为 true。</returns>
         internal static bool Remove(
             DynamicBuffer<AttributeModifierHeapNode> heap,
-            DynamicBuffer<AttributeModifierContribution> contributions,
-            int slot,
-            AttributeModifierChannel channel,
             long buffInstanceId,
             ref int start,
             ref int count,
@@ -92,7 +81,7 @@ namespace RebornFrame.Spell
             int relative = FindRelative(heap, start, count, buffInstanceId);
             if (relative >= 0)
             {
-                RemoveAt(heap, contributions, slot, channel, start, ref count, relative);
+                RemoveAt(heap, start, ref count, relative);
             }
 
             if (count == 0)
@@ -244,9 +233,6 @@ namespace RebornFrame.Spell
 
         static void RemoveAt(
             DynamicBuffer<AttributeModifierHeapNode> heap,
-            DynamicBuffer<AttributeModifierContribution> contributions,
-            int slot,
-            AttributeModifierChannel channel,
             int start,
             ref int count,
             int relative)
@@ -254,29 +240,19 @@ namespace RebornFrame.Spell
             int last = count - 1;
             if (relative != last)
             {
-                AttributeModifierHeapNode moved = heap[start + last];
-                heap[start + relative] = moved;
-                SetContributionIndex(
-                    contributions,
-                    slot,
-                    channel,
-                    moved.BuffInstanceId,
-                    relative);
+                heap[start + relative] = heap[start + last];
             }
 
             count--;
             if (relative < count)
             {
-                SiftDown(heap, contributions, slot, channel, start, count, relative);
-                SiftUp(heap, contributions, slot, channel, start, count, relative);
+                SiftDown(heap, start, count, relative);
+                SiftUp(heap, start, count, relative);
             }
         }
 
         static void SiftUp(
             DynamicBuffer<AttributeModifierHeapNode> heap,
-            DynamicBuffer<AttributeModifierContribution> contributions,
-            int slot,
-            AttributeModifierChannel channel,
             int start,
             int count,
             int relative)
@@ -289,16 +265,13 @@ namespace RebornFrame.Spell
                     return;
                 }
 
-                Swap(heap, contributions, slot, channel, start, relative, parent);
+                Swap(heap, start, relative, parent);
                 relative = parent;
             }
         }
 
         static void SiftDown(
             DynamicBuffer<AttributeModifierHeapNode> heap,
-            DynamicBuffer<AttributeModifierContribution> contributions,
-            int slot,
-            AttributeModifierChannel channel,
             int start,
             int count,
             int relative)
@@ -323,16 +296,13 @@ namespace RebornFrame.Spell
                     return;
                 }
 
-                Swap(heap, contributions, slot, channel, start, relative, best);
+                Swap(heap, start, relative, best);
                 relative = best;
             }
         }
 
         static void Swap(
             DynamicBuffer<AttributeModifierHeapNode> heap,
-            DynamicBuffer<AttributeModifierContribution> contributions,
-            int slot,
-            AttributeModifierChannel channel,
             int start,
             int left,
             int right)
@@ -341,31 +311,6 @@ namespace RebornFrame.Spell
             AttributeModifierHeapNode rightNode = heap[start + right];
             heap[start + left] = rightNode;
             heap[start + right] = leftNode;
-            SetContributionIndex(contributions, slot, channel, rightNode.BuffInstanceId, left);
-            SetContributionIndex(contributions, slot, channel, leftNode.BuffInstanceId, right);
-        }
-
-        static void SetContributionIndex(
-            DynamicBuffer<AttributeModifierContribution> contributions,
-            int slot,
-            AttributeModifierChannel channel,
-            long buffInstanceId,
-            int heapIndex)
-        {
-            for (int index = 0; index < contributions.Length; index++)
-            {
-                AttributeModifierContribution contribution = contributions[index];
-                if (contribution.Slot != slot
-                    || contribution.Channel != channel
-                    || contribution.BuffInstanceId != buffInstanceId)
-                {
-                    continue;
-                }
-
-                contribution.HeapIndex = heapIndex;
-                contributions[index] = contribution;
-                return;
-            }
         }
 
         static void GetRange(

@@ -8,12 +8,39 @@ namespace RebornFrame.Spell
     /// </summary>
     internal static class AttributeModifierAccess
     {
+        /// <summary>上次解析到的工作区所属 World。换 World 时重新查找。</summary>
+        static ulong _workspaceWorldSequence;
+
+        /// <summary>上次解析到的工作区实体。</summary>
+        static Entity _workspaceEntity;
+
         /// <summary>
         /// 确保 World 里存在修改器工作区。封存和计算都从这里读取脏列表。
+        /// 同一 World 在工作区仍然存在时直接复用，避免每次标脏都创建查询。
         /// </summary>
         /// <param name="entityManager">目标 World 的实体管理器。</param>
         /// <returns>工作区实体。</returns>
         internal static Entity EnsureWorkspace(EntityManager entityManager)
+        {
+            ulong sequence = entityManager.World.SequenceNumber;
+            if (sequence == _workspaceWorldSequence
+                && entityManager.Exists(_workspaceEntity))
+            {
+                return _workspaceEntity;
+            }
+
+            Entity workspace = FindOrCreateWorkspace(entityManager);
+            _workspaceWorldSequence = sequence;
+            _workspaceEntity = workspace;
+            return workspace;
+        }
+
+        /// <summary>
+        /// 查找已有工作区；没有时创建一个。
+        /// </summary>
+        /// <param name="entityManager">目标 World 的实体管理器。</param>
+        /// <returns>工作区实体。</returns>
+        static Entity FindOrCreateWorkspace(EntityManager entityManager)
         {
             using EntityQuery query = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<AttributeModifierWorkspace>());
@@ -31,7 +58,8 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        /// 给单位挂上修改器状态、贡献和重载堆。资源与数值属性立刻写入配置基础值。
+        /// 给单位挂上修改器状态、贡献和重载堆。
+        /// 状态缓冲与布局等长，下标就是槽位。标记属性也占一格，基础值来自配置默认值。
         /// </summary>
         /// <param name="entityManager">单位所在 World 的实体管理器。</param>
         /// <param name="entity">待挂载的单位。</param>
@@ -52,15 +80,9 @@ namespace RebornFrame.Spell
             DynamicBuffer<AttributeModifierState> states =
                 entityManager.AddBuffer<AttributeModifierState>(entity);
             ref BlobArray<AttributeLayoutEntry> entries = ref layout.Value.Entries;
+            states.EnsureCapacity(entries.Length);
             for (int slot = 0; slot < entries.Length; slot++)
             {
-                AttributeBehavior behavior = entries[slot].Definition.Behavior;
-                if (behavior != AttributeBehavior.Resource
-                    && behavior != AttributeBehavior.Numeric)
-                {
-                    continue;
-                }
-
                 states.Add(CreateState(slot, entries[slot], stableId));
             }
         }
@@ -128,16 +150,13 @@ namespace RebornFrame.Spell
                         Channel = channel,
                         ValueBits = valueBits,
                         Weight = storedWeight,
-                        HeapIndex = -1,
                     });
                 }
 
                 AttributeModifierHeap.Upsert(
                     heap,
-                    contributions,
                     states,
                     stateIndex,
-                    state.Slot,
                     channel,
                     buffInstanceId,
                     storedWeight,
@@ -174,7 +193,6 @@ namespace RebornFrame.Spell
                         Channel = channel,
                         ValueBits = valueBits,
                         Weight = 0,
-                        HeapIndex = -1,
                     });
                 }
 
@@ -221,8 +239,8 @@ namespace RebornFrame.Spell
                     continue;
                 }
 
-                int stateIndex = FindState(states, contribution.Slot);
-                if (stateIndex >= 0)
+                int stateIndex = contribution.Slot;
+                if ((uint)stateIndex < (uint)states.Length)
                 {
                     ref AttributeModifierState state = ref states.ElementAt(stateIndex);
                     if (IsOverride(contribution.Channel))
@@ -230,9 +248,6 @@ namespace RebornFrame.Spell
                         GetHeap(ref state, contribution.Channel, out int start, out int count);
                         bool alive = AttributeModifierHeap.Remove(
                             heap,
-                            contributions,
-                            contribution.Slot,
-                            contribution.Channel,
                             buffInstanceId,
                             ref start,
                             ref count,
@@ -340,24 +355,13 @@ namespace RebornFrame.Spell
             states = entityManager.GetBuffer<AttributeModifierState>(entity);
             contributions = entityManager.GetBuffer<AttributeModifierContribution>(entity);
             heap = entityManager.GetBuffer<AttributeModifierHeapNode>(entity);
-            stateIndex = FindState(states, slot);
-            if (stateIndex < 0)
+            // 初始化时状态与布局等长，槽位就是状态下标。
+            if ((uint)slot >= (uint)states.Length)
             {
-                if (entry.Definition.Behavior != AttributeBehavior.Marker)
-                {
-                    return false;
-                }
-
-                ulong stableId = 0;
-                if (entityManager.HasComponent<SpellStableId>(entity))
-                {
-                    stableId = entityManager.GetComponentData<SpellStableId>(entity).Value;
-                }
-
-                states.Add(CreateState(slot, entry, stableId));
-                stateIndex = states.Length - 1;
+                return false;
             }
 
+            stateIndex = slot;
             return true;
         }
 
@@ -418,19 +422,6 @@ namespace RebornFrame.Spell
                 Unit = entity,
                 Slot = slot,
             });
-        }
-
-        static int FindState(DynamicBuffer<AttributeModifierState> states, int slot)
-        {
-            for (int index = 0; index < states.Length; index++)
-            {
-                if (states[index].Slot == slot)
-                {
-                    return index;
-                }
-            }
-
-            return -1;
         }
 
         static int FindContribution(

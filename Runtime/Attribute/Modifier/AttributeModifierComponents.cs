@@ -3,7 +3,8 @@ using Unity.Entities;
 namespace RebornFrame.Spell
 {
     /// <summary>
-    /// 一个属性的修改器热状态。通道合计在提交时维护，Tick 直接读取。
+    /// 一个属性的修改器热状态。缓冲与单位布局等长，下标就是槽位。
+    /// 通道合计在提交时维护，Tick 直接读取。
     /// </summary>
     [InternalBufferCapacity(8)]
     internal struct AttributeModifierState : IBufferElementData
@@ -104,9 +105,6 @@ namespace RebornFrame.Spell
 
         /// <summary>重载权重。加值和百分比为 0。</summary>
         public int Weight;
-
-        /// <summary>在对应重载堆中的下标。非重载为 -1。</summary>
-        public int HeapIndex;
     }
 
     /// <summary>重载二叉堆的一个节点。权重高者在前，权重相同则 Buff 实例 ID 更大者在前。</summary>
