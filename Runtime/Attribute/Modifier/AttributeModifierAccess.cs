@@ -8,12 +8,39 @@ namespace RebornFrame.Spell
     /// </summary>
     internal static class AttributeModifierAccess
     {
+        /// <summary>上次解析到的工作区所属 World。换 World 时重新查找。</summary>
+        static ulong _workspaceWorldSequence;
+
+        /// <summary>上次解析到的工作区实体。</summary>
+        static Entity _workspaceEntity;
+
         /// <summary>
         /// 确保 World 里存在修改器工作区。封存和计算都从这里读取脏列表。
+        /// 同一 World 在工作区仍然存在时直接复用，避免每次标脏都创建查询。
         /// </summary>
         /// <param name="entityManager">目标 World 的实体管理器。</param>
         /// <returns>工作区实体。</returns>
         internal static Entity EnsureWorkspace(EntityManager entityManager)
+        {
+            ulong sequence = entityManager.World.SequenceNumber;
+            if (sequence == _workspaceWorldSequence
+                && entityManager.Exists(_workspaceEntity))
+            {
+                return _workspaceEntity;
+            }
+
+            Entity workspace = FindOrCreateWorkspace(entityManager);
+            _workspaceWorldSequence = sequence;
+            _workspaceEntity = workspace;
+            return workspace;
+        }
+
+        /// <summary>
+        /// 查找已有工作区；没有时创建一个。
+        /// </summary>
+        /// <param name="entityManager">目标 World 的实体管理器。</param>
+        /// <returns>工作区实体。</returns>
+        static Entity FindOrCreateWorkspace(EntityManager entityManager)
         {
             using EntityQuery query = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<AttributeModifierWorkspace>());
