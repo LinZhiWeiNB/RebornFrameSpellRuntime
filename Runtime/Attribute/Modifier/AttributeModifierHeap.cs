@@ -13,8 +13,8 @@ namespace RebornFrame.Spell
         /// 插入或替换一条重载，并返回新的堆顶。
         /// </summary>
         /// <param name="heap">单位上的堆节点缓冲。</param>
-        /// <param name="states">单位上的修改器状态，压缩堆时回写起点。</param>
-        /// <param name="stateIndex">当前属性状态的下标。</param>
+        /// <param name="ranges">单位上的重载堆位置，压缩堆时回写起点。</param>
+        /// <param name="slot">当前属性槽位。</param>
         /// <param name="channel">重载通道。</param>
         /// <param name="buffInstanceId">Buff 实例 ID。</param>
         /// <param name="weight">权重。</param>
@@ -23,16 +23,16 @@ namespace RebornFrame.Spell
         /// <returns>堆非空时为 true。</returns>
         internal static bool Upsert(
             DynamicBuffer<AttributeModifierHeapNode> heap,
-            DynamicBuffer<AttributeModifierState> states,
-            int stateIndex,
+            DynamicBuffer<AttributeModifierOverrideRange> ranges,
+            int slot,
             AttributeModifierChannel channel,
             long buffInstanceId,
             int weight,
             long valueBits,
             out long top)
         {
-            ref AttributeModifierState state = ref states.ElementAt(stateIndex);
-            GetRange(ref state, channel, out int start, out int count);
+            ref AttributeModifierOverrideRange range = ref ranges.ElementAt(slot);
+            GetRange(ref range, channel, out int start, out int count);
             int relative = FindRelative(heap, start, count, buffInstanceId);
             if (relative >= 0)
             {
@@ -45,7 +45,7 @@ namespace RebornFrame.Spell
             }
             else
             {
-                EnsureSlot(heap, states, ref start, ref count);
+                EnsureSlot(heap, ranges, ref start, ref count);
                 int index = start + count;
                 heap[index] = new AttributeModifierHeapNode
                 {
@@ -57,7 +57,9 @@ namespace RebornFrame.Spell
                 SiftUp(heap, start, count, count - 1);
             }
 
-            SetRange(ref state, channel, start, count);
+            // 压缩可能改写过缓冲，重新取得这一槽的位置再写入。
+            range = ref ranges.ElementAt(slot);
+            SetRange(ref range, channel, start, count);
             top = heap[start].ValueBits;
             return true;
         }
@@ -131,7 +133,7 @@ namespace RebornFrame.Spell
 
         static void EnsureSlot(
             DynamicBuffer<AttributeModifierHeapNode> heap,
-            DynamicBuffer<AttributeModifierState> states,
+            DynamicBuffer<AttributeModifierOverrideRange> ranges,
             ref int start,
             ref int count)
         {
@@ -145,9 +147,9 @@ namespace RebornFrame.Spell
             if (start + count != heap.Length)
             {
                 // 增长不能覆盖后面的堆。空洞过多时先压紧，再把当前堆搬到末尾。
-                if (heap.Length > 32 && LiveCount(states) * 2 < heap.Length)
+                if (heap.Length > 32 && LiveCount(ranges) * 2 < heap.Length)
                 {
-                    Compact(heap, states, ref start, ref count);
+                    Compact(heap, ranges, ref start, ref count);
                 }
 
                 if (start + count != heap.Length)
@@ -165,39 +167,39 @@ namespace RebornFrame.Spell
             heap.Add(default);
         }
 
-        static int LiveCount(DynamicBuffer<AttributeModifierState> states)
+        static int LiveCount(DynamicBuffer<AttributeModifierOverrideRange> ranges)
         {
             int total = 0;
-            for (int index = 0; index < states.Length; index++)
+            for (int index = 0; index < ranges.Length; index++)
             {
-                AttributeModifierState state = states[index];
-                total += state.BaseHeapCount + state.ExtraHeapCount + state.FinalHeapCount;
+                AttributeModifierOverrideRange range = ranges[index];
+                total += range.BaseCount + range.ExtraCount + range.FinalCount;
             }
 
             return total;
         }
 
         /// <summary>
-        /// 把仍然被状态引用的堆段搬到缓冲末尾，丢弃搬迁留下的空洞。
+        /// 把仍然被槽位引用的堆段搬到缓冲末尾，丢弃搬迁留下的空洞。
         /// </summary>
         /// <param name="heap">堆缓冲。</param>
-        /// <param name="states">修改器状态。</param>
+        /// <param name="ranges">重载堆位置。</param>
         /// <param name="activeStart">当前正在增长的堆起点。</param>
         /// <param name="activeCount">当前正在增长的堆长度。</param>
         static void Compact(
             DynamicBuffer<AttributeModifierHeapNode> heap,
-            DynamicBuffer<AttributeModifierState> states,
+            DynamicBuffer<AttributeModifierOverrideRange> ranges,
             ref int activeStart,
             ref int activeCount)
         {
             NativeList<AttributeModifierHeapNode> packed =
                 new NativeList<AttributeModifierHeapNode>(heap.Length, Allocator.Temp);
-            for (int stateIndex = 0; stateIndex < states.Length; stateIndex++)
+            for (int slot = 0; slot < ranges.Length; slot++)
             {
-                ref AttributeModifierState state = ref states.ElementAt(stateIndex);
-                PackRange(heap, packed, ref state.BaseHeapStart, state.BaseHeapCount, ref activeStart, activeCount);
-                PackRange(heap, packed, ref state.ExtraHeapStart, state.ExtraHeapCount, ref activeStart, activeCount);
-                PackRange(heap, packed, ref state.FinalHeapStart, state.FinalHeapCount, ref activeStart, activeCount);
+                ref AttributeModifierOverrideRange range = ref ranges.ElementAt(slot);
+                PackRange(heap, packed, ref range.BaseStart, range.BaseCount, ref activeStart, activeCount);
+                PackRange(heap, packed, ref range.ExtraStart, range.ExtraCount, ref activeStart, activeCount);
+                PackRange(heap, packed, ref range.FinalStart, range.FinalCount, ref activeStart, activeCount);
             }
 
             heap.Clear();
@@ -314,7 +316,7 @@ namespace RebornFrame.Spell
         }
 
         static void GetRange(
-            ref AttributeModifierState state,
+            ref AttributeModifierOverrideRange range,
             AttributeModifierChannel channel,
             out int start,
             out int count)
@@ -322,22 +324,22 @@ namespace RebornFrame.Spell
             switch (channel)
             {
                 case AttributeModifierChannel.BaseOverride:
-                    start = state.BaseHeapStart;
-                    count = state.BaseHeapCount;
+                    start = range.BaseStart;
+                    count = range.BaseCount;
                     return;
                 case AttributeModifierChannel.ExtraOverride:
-                    start = state.ExtraHeapStart;
-                    count = state.ExtraHeapCount;
+                    start = range.ExtraStart;
+                    count = range.ExtraCount;
                     return;
                 default:
-                    start = state.FinalHeapStart;
-                    count = state.FinalHeapCount;
+                    start = range.FinalStart;
+                    count = range.FinalCount;
                     return;
             }
         }
 
         static void SetRange(
-            ref AttributeModifierState state,
+            ref AttributeModifierOverrideRange range,
             AttributeModifierChannel channel,
             int start,
             int count)
@@ -345,16 +347,16 @@ namespace RebornFrame.Spell
             switch (channel)
             {
                 case AttributeModifierChannel.BaseOverride:
-                    state.BaseHeapStart = start;
-                    state.BaseHeapCount = count;
+                    range.BaseStart = start;
+                    range.BaseCount = count;
                     return;
                 case AttributeModifierChannel.ExtraOverride:
-                    state.ExtraHeapStart = start;
-                    state.ExtraHeapCount = count;
+                    range.ExtraStart = start;
+                    range.ExtraCount = count;
                     return;
                 default:
-                    state.FinalHeapStart = start;
-                    state.FinalHeapCount = count;
+                    range.FinalStart = start;
+                    range.FinalCount = count;
                     return;
             }
         }

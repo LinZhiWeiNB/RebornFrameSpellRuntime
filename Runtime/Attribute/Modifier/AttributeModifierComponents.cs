@@ -3,21 +3,12 @@ using Unity.Entities;
 namespace RebornFrame.Spell
 {
     /// <summary>
-    /// 一个属性的修改器热状态。缓冲与单位布局等长，下标就是槽位。
-    /// 通道合计在提交时维护，Tick 直接读取。
+    /// 一个属性的通道热记录。缓冲与单位布局等长，下标就是槽位。
+    /// 设置和删除时维护合计与堆顶，结算直接读取。
     /// </summary>
     [InternalBufferCapacity(8)]
-    internal struct AttributeModifierState : IBufferElementData
+    internal struct AttributeModifierChannels : IBufferElementData
     {
-        /// <summary>属性在单位布局中的槽位。</summary>
-        public int Slot;
-
-        /// <summary>属性标识。</summary>
-        public AttributeId Id;
-
-        /// <summary>配置基础值。</summary>
-        public long BaseBits;
-
         /// <summary>基础加值合计。</summary>
         public WideMath.SignedAccumulator BaseAdd;
 
@@ -31,58 +22,83 @@ namespace RebornFrame.Spell
         public WideMath.SignedAccumulator ExtraPercent;
 
         /// <summary>基础重载堆顶。</summary>
-        public long BaseOverrideBits;
+        public long BaseOverride;
 
         /// <summary>额外重载堆顶。</summary>
-        public long ExtraOverrideBits;
+        public long ExtraOverride;
 
         /// <summary>最终重载堆顶。</summary>
-        public long FinalOverrideBits;
+        public long FinalOverride;
 
-        /// <summary>非零表示基础重载堆非空。</summary>
-        public byte HasBaseOverride;
+        /// <summary>
+        /// <see cref="AttributeModifierFlags"/> 的组合。含三个重载非空位和脏位。
+        /// </summary>
+        public byte Flags;
+    }
 
-        /// <summary>非零表示额外重载堆非空。</summary>
-        public byte HasExtraOverride;
+    /// <summary>热记录 <see cref="AttributeModifierChannels.Flags"/> 的位。</summary>
+    internal static class AttributeModifierFlags
+    {
+        /// <summary>基础重载堆非空。</summary>
+        internal const byte HasBaseOverride = 1;
 
-        /// <summary>非零表示最终重载堆非空。</summary>
-        public byte HasFinalOverride;
+        /// <summary>额外重载堆非空。</summary>
+        internal const byte HasExtraOverride = 2;
 
-        /// <summary>非零时公式结果不得小于 0。</summary>
-        public byte NonNegative;
+        /// <summary>最终重载堆非空。</summary>
+        internal const byte HasFinalOverride = 4;
 
-        /// <summary>值类型。</summary>
-        public AttributeValueKind ValueKind;
+        /// <summary>已进入本批脏列表。</summary>
+        internal const byte Dirty = 8;
 
-        /// <summary>行为分类。</summary>
-        public AttributeBehavior Behavior;
+        /// <summary>
+        /// 判断标志位是否置位。
+        /// </summary>
+        /// <param name="flags">当前标志。</param>
+        /// <param name="bit">要检查的位。</param>
+        /// <returns>该位为 1 时为 true。</returns>
+        internal static bool Has(byte flags, byte bit)
+        {
+            return (flags & bit) != 0;
+        }
 
-        /// <summary>非零时，资源 Max 变化会按比例调整 Current。</summary>
-        public byte ScaleCurrentWithMax;
+        /// <summary>
+        /// 按开关更新一个标志位，其余位保持不变。
+        /// </summary>
+        /// <param name="flags">当前标志。</param>
+        /// <param name="bit">要更新的位。</param>
+        /// <param name="enabled">为 true 时置位，为 false 时清位。</param>
+        /// <returns>更新后的标志。</returns>
+        internal static byte With(byte flags, byte bit, bool enabled)
+        {
+            return enabled ? (byte)(flags | bit) : (byte)(flags & ~bit);
+        }
+    }
 
-        /// <summary>非零表示已进入本批脏列表。</summary>
-        public byte Dirty;
-
-        /// <summary>单位稳定 ID，供事件排序使用。</summary>
-        public ulong StableId;
-
-        /// <summary>基础重载堆在堆缓冲中的起点。</summary>
-        public int BaseHeapStart;
+    /// <summary>
+    /// 一个属性三个重载堆在堆缓冲中的位置。与热记录等长，下标就是槽位。
+    /// 只有设置和删除会读写。
+    /// </summary>
+    [InternalBufferCapacity(8)]
+    internal struct AttributeModifierOverrideRange : IBufferElementData
+    {
+        /// <summary>基础重载堆起点。</summary>
+        public int BaseStart;
 
         /// <summary>基础重载堆长度。</summary>
-        public int BaseHeapCount;
+        public int BaseCount;
 
         /// <summary>额外重载堆起点。</summary>
-        public int ExtraHeapStart;
+        public int ExtraStart;
 
         /// <summary>额外重载堆长度。</summary>
-        public int ExtraHeapCount;
+        public int ExtraCount;
 
         /// <summary>最终重载堆起点。</summary>
-        public int FinalHeapStart;
+        public int FinalStart;
 
         /// <summary>最终重载堆长度。</summary>
-        public int FinalHeapCount;
+        public int FinalCount;
     }
 
     /// <summary>
@@ -126,7 +142,7 @@ namespace RebornFrame.Spell
     {
     }
 
-    /// <summary>本批待封存的脏修改器。</summary>
+    /// <summary>本批待结算的脏槽。只记录单位和槽位，不复制通道值。</summary>
     [InternalBufferCapacity(0)]
     internal struct AttributeModifierDirtyRef : IBufferElementData
     {
@@ -135,111 +151,5 @@ namespace RebornFrame.Spell
 
         /// <summary>属性槽位。</summary>
         public int Slot;
-    }
-
-    /// <summary>封存后的热计算输入。计算作业只读这一段连续数据。</summary>
-    [InternalBufferCapacity(0)]
-    internal struct AttributeModifierCalcInput : IBufferElementData
-    {
-        /// <summary>写回目标单位。</summary>
-        public Entity Unit;
-
-        /// <summary>属性槽位。</summary>
-        public int Slot;
-
-        /// <summary>属性标识。</summary>
-        public AttributeId AttributeId;
-
-        /// <summary>单位稳定 ID。</summary>
-        public ulong StableId;
-
-        /// <summary>配置基础值。</summary>
-        public long BaseBits;
-
-        /// <summary>基础加值高字。</summary>
-        public long BaseAddHigh;
-
-        /// <summary>基础加值低字。</summary>
-        public ulong BaseAddLow;
-
-        /// <summary>基础百分比高字。</summary>
-        public long BasePercentHigh;
-
-        /// <summary>基础百分比低字。</summary>
-        public ulong BasePercentLow;
-
-        /// <summary>额外加值高字。</summary>
-        public long ExtraAddHigh;
-
-        /// <summary>额外加值低字。</summary>
-        public ulong ExtraAddLow;
-
-        /// <summary>额外百分比高字。</summary>
-        public long ExtraPercentHigh;
-
-        /// <summary>额外百分比低字。</summary>
-        public ulong ExtraPercentLow;
-
-        /// <summary>基础重载堆顶。</summary>
-        public long BaseOverrideBits;
-
-        /// <summary>额外重载堆顶。</summary>
-        public long ExtraOverrideBits;
-
-        /// <summary>最终重载堆顶。</summary>
-        public long FinalOverrideBits;
-
-        /// <summary>非零表示存在基础重载。</summary>
-        public byte HasBaseOverride;
-
-        /// <summary>非零表示存在额外重载。</summary>
-        public byte HasExtraOverride;
-
-        /// <summary>非零表示存在最终重载。</summary>
-        public byte HasFinalOverride;
-
-        /// <summary>非零时结果不得小于 0。</summary>
-        public byte NonNegative;
-
-        /// <summary>值类型。</summary>
-        public AttributeValueKind ValueKind;
-
-        /// <summary>行为分类。</summary>
-        public AttributeBehavior Behavior;
-
-        /// <summary>非零时资源 Current 随 Max 缩放。</summary>
-        public byte ScaleCurrentWithMax;
-    }
-
-    /// <summary>热计算的公式结果。赋值作业据此写回属性。</summary>
-    [InternalBufferCapacity(0)]
-    internal struct AttributeModifierCalcResult : IBufferElementData
-    {
-        /// <summary>写回目标单位。</summary>
-        public Entity Unit;
-
-        /// <summary>属性槽位。</summary>
-        public int Slot;
-
-        /// <summary>属性标识。</summary>
-        public AttributeId AttributeId;
-
-        /// <summary>单位稳定 ID。</summary>
-        public ulong StableId;
-
-        /// <summary>行为分类。</summary>
-        public AttributeBehavior Behavior;
-
-        /// <summary>值类型。</summary>
-        public AttributeValueKind ValueKind;
-
-        /// <summary>非零时资源 Current 随 Max 缩放。</summary>
-        public byte ScaleCurrentWithMax;
-
-        /// <summary>基础阶段结果。</summary>
-        public long NewBase;
-
-        /// <summary>最终阶段结果。资源解释为 Max，数值和标记解释为 Current。</summary>
-        public long NewFinal;
     }
 }

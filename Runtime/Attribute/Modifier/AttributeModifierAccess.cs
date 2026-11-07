@@ -15,7 +15,7 @@ namespace RebornFrame.Spell
         static Entity _workspaceEntity;
 
         /// <summary>
-        /// 确保 World 里存在修改器工作区。封存和计算都从这里读取脏列表。
+        /// 确保 World 里存在修改器工作区。结算从这里读取脏列表。
         /// 同一 World 在工作区仍然存在时直接复用，避免每次标脏都创建查询。
         /// </summary>
         /// <param name="entityManager">目标 World 的实体管理器。</param>
@@ -52,14 +52,12 @@ namespace RebornFrame.Spell
             Entity workspace = entityManager.CreateEntity();
             entityManager.AddComponent<AttributeModifierWorkspace>(workspace);
             entityManager.AddBuffer<AttributeModifierDirtyRef>(workspace);
-            entityManager.AddBuffer<AttributeModifierCalcInput>(workspace);
-            entityManager.AddBuffer<AttributeModifierCalcResult>(workspace);
             return workspace;
         }
 
         /// <summary>
-        /// 给单位挂上修改器状态、贡献和重载堆。
-        /// 状态缓冲与布局等长，下标就是槽位。标记属性也占一格，基础值来自配置默认值。
+        /// 给单位挂上通道热记录、重载堆位置、贡献和重载堆。
+        /// 热记录和堆位置与布局等长，下标就是槽位。
         /// </summary>
         /// <param name="entityManager">单位所在 World 的实体管理器。</param>
         /// <param name="entity">待挂载的单位。</param>
@@ -69,21 +67,19 @@ namespace RebornFrame.Spell
             Entity entity,
             BlobAssetReference<AttributeLayoutBlob> layout)
         {
-            ulong stableId = 0;
-            if (entityManager.HasComponent<SpellStableId>(entity))
-            {
-                stableId = entityManager.GetComponentData<SpellStableId>(entity).Value;
-            }
-
             entityManager.AddBuffer<AttributeModifierContribution>(entity);
             entityManager.AddBuffer<AttributeModifierHeapNode>(entity);
-            DynamicBuffer<AttributeModifierState> states =
-                entityManager.AddBuffer<AttributeModifierState>(entity);
-            ref BlobArray<AttributeLayoutEntry> entries = ref layout.Value.Entries;
-            states.EnsureCapacity(entries.Length);
-            for (int slot = 0; slot < entries.Length; slot++)
+            DynamicBuffer<AttributeModifierChannels> channels =
+                entityManager.AddBuffer<AttributeModifierChannels>(entity);
+            DynamicBuffer<AttributeModifierOverrideRange> ranges =
+                entityManager.AddBuffer<AttributeModifierOverrideRange>(entity);
+            int length = layout.Value.Entries.Length;
+            channels.EnsureCapacity(length);
+            ranges.EnsureCapacity(length);
+            for (int slot = 0; slot < length; slot++)
             {
-                states.Add(CreateState(slot, entries[slot], stableId));
+                channels.Add(default);
+                ranges.Add(default);
             }
         }
 
@@ -114,18 +110,18 @@ namespace RebornFrame.Spell
                     attributeId,
                     channel,
                     valueBits,
-                    out int stateIndex,
-                    out DynamicBuffer<AttributeModifierState> states,
+                    out int slot,
+                    out DynamicBuffer<AttributeModifierChannels> channels,
+                    out DynamicBuffer<AttributeModifierOverrideRange> ranges,
                     out DynamicBuffer<AttributeModifierContribution> contributions,
                     out DynamicBuffer<AttributeModifierHeapNode> heap))
             {
                 return false;
             }
 
-            ref AttributeModifierState state = ref states.ElementAt(stateIndex);
             int contributionIndex = FindContribution(
                 contributions,
-                state.Slot,
+                slot,
                 buffInstanceId,
                 channel);
             bool isOverride = IsOverride(channel);
@@ -145,7 +141,7 @@ namespace RebornFrame.Spell
                 {
                     contributions.Add(new AttributeModifierContribution
                     {
-                        Slot = state.Slot,
+                        Slot = slot,
                         BuffInstanceId = buffInstanceId,
                         Channel = channel,
                         ValueBits = valueBits,
@@ -155,51 +151,58 @@ namespace RebornFrame.Spell
 
                 AttributeModifierHeap.Upsert(
                     heap,
-                    states,
-                    stateIndex,
+                    ranges,
+                    slot,
                     channel,
                     buffInstanceId,
                     storedWeight,
                     valueBits,
                     out long top);
-                state = ref states.ElementAt(stateIndex);
-                SetOverrideTop(ref state, channel, top, true);
+                // 堆调整会再次访问位置缓冲，热记录在此重新取出。
+                ref AttributeModifierChannels hot = ref channels.ElementAt(slot);
+                SetOverrideTop(ref hot, channel, top, true);
                 if (contributionIndex >= 0)
                 {
                     AttributeModifierContribution current = contributions[contributionIndex];
                     current.ValueBits = valueBits;
                     current.Weight = storedWeight;
                     contributions[contributionIndex] = current;
+                    hot = ref channels.ElementAt(slot);
                 }
+
+                MarkDirty(entityManager, entity, slot, ref hot);
             }
             else
             {
+                ref AttributeModifierChannels hot = ref channels.ElementAt(slot);
                 if (contributionIndex >= 0)
                 {
                     SubtractChannel(
-                        ref state,
+                        ref hot,
                         channel,
                         contributions[contributionIndex].ValueBits);
                     AttributeModifierContribution current = contributions[contributionIndex];
                     current.ValueBits = valueBits;
                     contributions[contributionIndex] = current;
+                    hot = ref channels.ElementAt(slot);
                 }
                 else
                 {
                     contributions.Add(new AttributeModifierContribution
                     {
-                        Slot = state.Slot,
+                        Slot = slot,
                         BuffInstanceId = buffInstanceId,
                         Channel = channel,
                         ValueBits = valueBits,
                         Weight = 0,
                     });
+                    hot = ref channels.ElementAt(slot);
                 }
 
-                AddChannel(ref state, channel, valueBits);
+                AddChannel(ref hot, channel, valueBits);
+                MarkDirty(entityManager, entity, slot, ref hot);
             }
 
-            MarkDirty(entityManager, entity, state.Slot, ref state);
             return true;
         }
 
@@ -218,7 +221,8 @@ namespace RebornFrame.Spell
             if (buffInstanceId <= 0
                 || !entityManager.Exists(entity)
                 || !entityManager.HasBuffer<AttributeModifierContribution>(entity)
-                || !entityManager.HasBuffer<AttributeModifierState>(entity)
+                || !entityManager.HasBuffer<AttributeModifierChannels>(entity)
+                || !entityManager.HasBuffer<AttributeModifierOverrideRange>(entity)
                 || !entityManager.HasBuffer<AttributeModifierHeapNode>(entity))
             {
                 return false;
@@ -226,8 +230,10 @@ namespace RebornFrame.Spell
 
             DynamicBuffer<AttributeModifierContribution> contributions =
                 entityManager.GetBuffer<AttributeModifierContribution>(entity);
-            DynamicBuffer<AttributeModifierState> states =
-                entityManager.GetBuffer<AttributeModifierState>(entity);
+            DynamicBuffer<AttributeModifierChannels> channels =
+                entityManager.GetBuffer<AttributeModifierChannels>(entity);
+            DynamicBuffer<AttributeModifierOverrideRange> ranges =
+                entityManager.GetBuffer<AttributeModifierOverrideRange>(entity);
             DynamicBuffer<AttributeModifierHeapNode> heap =
                 entityManager.GetBuffer<AttributeModifierHeapNode>(entity);
             bool removed = false;
@@ -239,28 +245,31 @@ namespace RebornFrame.Spell
                     continue;
                 }
 
-                int stateIndex = contribution.Slot;
-                if ((uint)stateIndex < (uint)states.Length)
+                int slot = contribution.Slot;
+                if ((uint)slot < (uint)channels.Length && (uint)slot < (uint)ranges.Length)
                 {
-                    ref AttributeModifierState state = ref states.ElementAt(stateIndex);
+                    ref AttributeModifierChannels hot = ref channels.ElementAt(slot);
+                    ref AttributeModifierOverrideRange range = ref ranges.ElementAt(slot);
                     if (IsOverride(contribution.Channel))
                     {
-                        GetHeap(ref state, contribution.Channel, out int start, out int count);
+                        GetHeap(ref range, contribution.Channel, out int start, out int count);
                         bool alive = AttributeModifierHeap.Remove(
                             heap,
                             buffInstanceId,
                             ref start,
                             ref count,
                             out long top);
-                        SetHeap(ref state, contribution.Channel, start, count);
-                        SetOverrideTop(ref state, contribution.Channel, top, alive);
+                        range = ref ranges.ElementAt(slot);
+                        hot = ref channels.ElementAt(slot);
+                        SetHeap(ref range, contribution.Channel, start, count);
+                        SetOverrideTop(ref hot, contribution.Channel, top, alive);
                     }
                     else
                     {
-                        SubtractChannel(ref state, contribution.Channel, contribution.ValueBits);
+                        SubtractChannel(ref hot, contribution.Channel, contribution.ValueBits);
                     }
 
-                    MarkDirty(entityManager, entity, state.Slot, ref state);
+                    MarkDirty(entityManager, entity, slot, ref hot);
                 }
 
                 contributions.RemoveAt(index);
@@ -323,13 +332,15 @@ namespace RebornFrame.Spell
             AttributeId attributeId,
             AttributeModifierChannel channel,
             long valueBits,
-            out int stateIndex,
-            out DynamicBuffer<AttributeModifierState> states,
+            out int slot,
+            out DynamicBuffer<AttributeModifierChannels> channels,
+            out DynamicBuffer<AttributeModifierOverrideRange> ranges,
             out DynamicBuffer<AttributeModifierContribution> contributions,
             out DynamicBuffer<AttributeModifierHeapNode> heap)
         {
-            stateIndex = -1;
-            states = default;
+            slot = -1;
+            channels = default;
+            ranges = default;
             contributions = default;
             heap = default;
             if (!IsDefined(channel)
@@ -338,49 +349,34 @@ namespace RebornFrame.Spell
                     entity,
                     attributeId,
                     out AttributeLayoutReference layout,
-                    out int slot)
-                || !entityManager.HasBuffer<AttributeModifierState>(entity)
+                    out int resolvedSlot)
+                || !entityManager.HasBuffer<AttributeModifierChannels>(entity)
+                || !entityManager.HasBuffer<AttributeModifierOverrideRange>(entity)
                 || !entityManager.HasBuffer<AttributeModifierContribution>(entity)
                 || !entityManager.HasBuffer<AttributeModifierHeapNode>(entity))
             {
                 return false;
             }
 
-            ref AttributeLayoutEntry entry = ref layout.Value.Value.Entries[slot];
+            ref AttributeLayoutEntry entry = ref layout.Value.Value.Entries[resolvedSlot];
             if (!IsValueAllowed(entry.Definition, channel, valueBits))
             {
                 return false;
             }
 
-            states = entityManager.GetBuffer<AttributeModifierState>(entity);
+            channels = entityManager.GetBuffer<AttributeModifierChannels>(entity);
+            ranges = entityManager.GetBuffer<AttributeModifierOverrideRange>(entity);
             contributions = entityManager.GetBuffer<AttributeModifierContribution>(entity);
             heap = entityManager.GetBuffer<AttributeModifierHeapNode>(entity);
-            // 初始化时状态与布局等长，槽位就是状态下标。
-            if ((uint)slot >= (uint)states.Length)
+            // 初始化时热记录与布局等长，槽位就是下标。
+            if ((uint)resolvedSlot >= (uint)channels.Length
+                || (uint)resolvedSlot >= (uint)ranges.Length)
             {
                 return false;
             }
 
-            stateIndex = slot;
+            slot = resolvedSlot;
             return true;
-        }
-
-        static AttributeModifierState CreateState(
-            int slot,
-            AttributeLayoutEntry entry,
-            ulong stableId)
-        {
-            return new AttributeModifierState
-            {
-                Slot = slot,
-                Id = entry.Definition.Id,
-                BaseBits = entry.DefaultBits,
-                NonNegative = entry.Definition.NonNegative,
-                ValueKind = entry.Definition.ValueKind,
-                Behavior = entry.Definition.Behavior,
-                ScaleCurrentWithMax = entry.Definition.ScaleCurrentWithMax,
-                StableId = stableId,
-            };
         }
 
         static bool IsValueAllowed(
@@ -406,14 +402,14 @@ namespace RebornFrame.Spell
             EntityManager entityManager,
             Entity entity,
             int slot,
-            ref AttributeModifierState state)
+            ref AttributeModifierChannels channels)
         {
-            if (state.Dirty != 0)
+            if (AttributeModifierFlags.Has(channels.Flags, AttributeModifierFlags.Dirty))
             {
                 return;
             }
 
-            state.Dirty = 1;
+            channels.Flags = AttributeModifierFlags.With(channels.Flags, AttributeModifierFlags.Dirty, true);
             Entity workspace = EnsureWorkspace(entityManager);
             DynamicBuffer<AttributeModifierDirtyRef> dirty =
                 entityManager.GetBuffer<AttributeModifierDirtyRef>(workspace);
@@ -457,51 +453,51 @@ namespace RebornFrame.Spell
         }
 
         static void AddChannel(
-            ref AttributeModifierState state,
+            ref AttributeModifierChannels channels,
             AttributeModifierChannel channel,
             long valueBits)
         {
             switch (channel)
             {
                 case AttributeModifierChannel.BaseAdd:
-                    state.BaseAdd.Add(valueBits);
+                    channels.BaseAdd.Add(valueBits);
                     return;
                 case AttributeModifierChannel.BasePercent:
-                    state.BasePercent.Add(valueBits);
+                    channels.BasePercent.Add(valueBits);
                     return;
                 case AttributeModifierChannel.ExtraAdd:
-                    state.ExtraAdd.Add(valueBits);
+                    channels.ExtraAdd.Add(valueBits);
                     return;
                 default:
-                    state.ExtraPercent.Add(valueBits);
+                    channels.ExtraPercent.Add(valueBits);
                     return;
             }
         }
 
         static void SubtractChannel(
-            ref AttributeModifierState state,
+            ref AttributeModifierChannels channels,
             AttributeModifierChannel channel,
             long valueBits)
         {
             switch (channel)
             {
                 case AttributeModifierChannel.BaseAdd:
-                    state.BaseAdd.Subtract(valueBits);
+                    channels.BaseAdd.Subtract(valueBits);
                     return;
                 case AttributeModifierChannel.BasePercent:
-                    state.BasePercent.Subtract(valueBits);
+                    channels.BasePercent.Subtract(valueBits);
                     return;
                 case AttributeModifierChannel.ExtraAdd:
-                    state.ExtraAdd.Subtract(valueBits);
+                    channels.ExtraAdd.Subtract(valueBits);
                     return;
                 default:
-                    state.ExtraPercent.Subtract(valueBits);
+                    channels.ExtraPercent.Subtract(valueBits);
                     return;
             }
         }
 
         static void GetHeap(
-            ref AttributeModifierState state,
+            ref AttributeModifierOverrideRange range,
             AttributeModifierChannel channel,
             out int start,
             out int count)
@@ -509,22 +505,22 @@ namespace RebornFrame.Spell
             switch (channel)
             {
                 case AttributeModifierChannel.BaseOverride:
-                    start = state.BaseHeapStart;
-                    count = state.BaseHeapCount;
+                    start = range.BaseStart;
+                    count = range.BaseCount;
                     return;
                 case AttributeModifierChannel.ExtraOverride:
-                    start = state.ExtraHeapStart;
-                    count = state.ExtraHeapCount;
+                    start = range.ExtraStart;
+                    count = range.ExtraCount;
                     return;
                 default:
-                    start = state.FinalHeapStart;
-                    count = state.FinalHeapCount;
+                    start = range.FinalStart;
+                    count = range.FinalCount;
                     return;
             }
         }
 
         static void SetHeap(
-            ref AttributeModifierState state,
+            ref AttributeModifierOverrideRange range,
             AttributeModifierChannel channel,
             int start,
             int count)
@@ -532,41 +528,49 @@ namespace RebornFrame.Spell
             switch (channel)
             {
                 case AttributeModifierChannel.BaseOverride:
-                    state.BaseHeapStart = start;
-                    state.BaseHeapCount = count;
+                    range.BaseStart = start;
+                    range.BaseCount = count;
                     return;
                 case AttributeModifierChannel.ExtraOverride:
-                    state.ExtraHeapStart = start;
-                    state.ExtraHeapCount = count;
+                    range.ExtraStart = start;
+                    range.ExtraCount = count;
                     return;
                 default:
-                    state.FinalHeapStart = start;
-                    state.FinalHeapCount = count;
+                    range.FinalStart = start;
+                    range.FinalCount = count;
                     return;
             }
         }
 
         static void SetOverrideTop(
-            ref AttributeModifierState state,
+            ref AttributeModifierChannels channels,
             AttributeModifierChannel channel,
             long top,
             bool alive)
         {
-            byte has = alive ? (byte)1 : (byte)0;
             long bits = alive ? top : 0;
             switch (channel)
             {
                 case AttributeModifierChannel.BaseOverride:
-                    state.HasBaseOverride = has;
-                    state.BaseOverrideBits = bits;
+                    channels.Flags = AttributeModifierFlags.With(
+                        channels.Flags,
+                        AttributeModifierFlags.HasBaseOverride,
+                        alive);
+                    channels.BaseOverride = bits;
                     return;
                 case AttributeModifierChannel.ExtraOverride:
-                    state.HasExtraOverride = has;
-                    state.ExtraOverrideBits = bits;
+                    channels.Flags = AttributeModifierFlags.With(
+                        channels.Flags,
+                        AttributeModifierFlags.HasExtraOverride,
+                        alive);
+                    channels.ExtraOverride = bits;
                     return;
                 default:
-                    state.HasFinalOverride = has;
-                    state.FinalOverrideBits = bits;
+                    channels.Flags = AttributeModifierFlags.With(
+                        channels.Flags,
+                        AttributeModifierFlags.HasFinalOverride,
+                        alive);
+                    channels.FinalOverride = bits;
                     return;
             }
         }

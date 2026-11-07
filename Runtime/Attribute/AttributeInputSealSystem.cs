@@ -6,7 +6,7 @@ namespace RebornFrame.Spell
     /// <summary>
     /// 在属性批次开始时把 Pending 资源请求复制到当前批次。
     /// 封存完成后的新提交始终留在 Pending，因此不会因系统或实体遍历顺序
-    /// 在当前批次重入。修改器改由自己的热快照封存。
+    /// 在当前批次重入。修改器通道在设置时已经写入热记录，这里不读取。
     /// </summary>
     [BurstCompile]
     [DisableAutoCreation]

@@ -3,40 +3,46 @@ using FixedMathSharp;
 namespace RebornFrame.Spell
 {
     /// <summary>
-    /// 用封存后的通道当前值计算公式结果。不读取贡献缓冲。
+    /// 用热记录里的通道当前值计算公式结果。不读取贡献缓冲。
+    /// 配置基础值、值类型和非负限制由调用方从布局传入。
     /// </summary>
     internal static class AttributeModifierMath
     {
         /// <summary>
         /// 计算基础值和最终值。
         /// </summary>
-        /// <param name="input">热快照。</param>
+        /// <param name="channels">该槽位的通道热记录。</param>
+        /// <param name="baseBits">布局中的配置基础值。</param>
+        /// <param name="valueKind">值类型。</param>
+        /// <param name="nonNegative">为 true 时每个阶段的结果不得小于 0。</param>
         /// <param name="newBase">基础阶段结果。</param>
         /// <param name="newFinal">最终阶段结果。</param>
         internal static void Evaluate(
-            in AttributeModifierCalcInput input,
+            in AttributeModifierChannels channels,
+            long baseBits,
+            AttributeValueKind valueKind,
+            bool nonNegative,
             out long newBase,
             out long newFinal)
         {
-            bool nonNegative = input.NonNegative != 0;
             newBase = EvaluateStage(
-                input.HasBaseOverride != 0,
-                input.BaseOverrideBits,
-                input.BaseBits,
-                WideMath.SignedAccumulator.FromParts(input.BaseAddHigh, input.BaseAddLow),
-                WideMath.SignedAccumulator.FromParts(input.BasePercentHigh, input.BasePercentLow),
-                input.ValueKind,
+                AttributeModifierFlags.Has(channels.Flags, AttributeModifierFlags.HasBaseOverride),
+                channels.BaseOverride,
+                baseBits,
+                channels.BaseAdd,
+                channels.BasePercent,
+                valueKind,
                 nonNegative);
             long extra = EvaluateStage(
-                input.HasExtraOverride != 0,
-                input.ExtraOverrideBits,
+                AttributeModifierFlags.Has(channels.Flags, AttributeModifierFlags.HasExtraOverride),
+                channels.ExtraOverride,
                 newBase,
-                WideMath.SignedAccumulator.FromParts(input.ExtraAddHigh, input.ExtraAddLow),
-                WideMath.SignedAccumulator.FromParts(input.ExtraPercentHigh, input.ExtraPercentLow),
-                input.ValueKind,
+                channels.ExtraAdd,
+                channels.ExtraPercent,
+                valueKind,
                 nonNegative);
-            newFinal = input.HasFinalOverride != 0
-                ? WideMath.Normalize(input.ValueKind, input.FinalOverrideBits, nonNegative)
+            newFinal = AttributeModifierFlags.Has(channels.Flags, AttributeModifierFlags.HasFinalOverride)
+                ? WideMath.Normalize(valueKind, channels.FinalOverride, nonNegative)
                 : extra;
         }
 

@@ -500,6 +500,7 @@ namespace RebornFrame.Spell.Tests
         [TearDown]
         public void TearDown()
         {
+            AttributeModifierResolveSelection.PreferredMode = null;
             _pipeline?.Dispose();
             _world?.Dispose();
             if (_layout.IsCreated)
@@ -1534,6 +1535,88 @@ namespace RebornFrame.Spell.Tests
         }
 
         /// <summary>
+        /// 验证按单位并行结算两个单位上的多个属性，并在结束后清掉脏标记。
+        /// </summary>
+        [Test]
+        public void ParallelResolve_TwoUnits_WritesChannelsAndClearsDirty()
+        {
+            Entity secondUnit = _entityManager.CreateEntity();
+            AttributeAccess.InitializeUnit(_entityManager, secondUnit, _layout);
+            AttributeModifierResolveSelection.PreferredMode = AttributeModifierResolveMode.Parallel;
+            try
+            {
+                Assert.IsTrue(AttributeAccess.TrySetModifier(
+                    _entityManager,
+                    _unit,
+                    AttackId,
+                    1,
+                    AttributeModifierChannel.ExtraAdd,
+                    5));
+                Assert.IsTrue(AttributeAccess.TrySetModifier(
+                    _entityManager,
+                    secondUnit,
+                    AttackId,
+                    2,
+                    AttributeModifierChannel.ExtraAdd,
+                    3));
+                Assert.IsTrue(AttributeAccess.TrySetModifier(
+                    _entityManager,
+                    _unit,
+                    HealthId,
+                    3,
+                    AttributeModifierChannel.ExtraAdd,
+                    20));
+
+                _pipeline.UpdateOnce();
+            }
+            finally
+            {
+                AttributeModifierResolveSelection.PreferredMode = null;
+            }
+
+            AttributeAccess.TryRead(
+                _entityManager,
+                _unit,
+                AttackId,
+                out AttributeSnapshot attack);
+            Assert.AreEqual(15, attack.CurrentBits);
+            AttributeAccess.TryRead(
+                _entityManager,
+                _unit,
+                HealthId,
+                out AttributeSnapshot health);
+            Assert.AreEqual(120, health.MaxBits);
+            Assert.AreEqual(120, health.CurrentBits);
+            AttributeAccess.TryRead(
+                _entityManager,
+                secondUnit,
+                AttackId,
+                out AttributeSnapshot secondAttack);
+            Assert.AreEqual(13, secondAttack.CurrentBits);
+
+            AssertDirtyCleared(_unit);
+            AssertDirtyCleared(secondUnit);
+            using EntityQuery workspaceQuery = _entityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<AttributeModifierWorkspace>());
+            Entity workspace = workspaceQuery.GetSingletonEntity();
+            Assert.AreEqual(
+                0,
+                _entityManager.GetBuffer<AttributeModifierDirtyRef>(workspace, true).Length);
+        }
+
+        /// <summary>
+        /// 验证未指定结算方式时，流水线选择主线程。
+        /// </summary>
+        [Test]
+        public void ResolveSelection_WithoutPreference_StaysSerial()
+        {
+            AttributeModifierResolveSelection.PreferredMode = null;
+            Assert.AreEqual(
+                AttributeModifierResolveMode.Serial,
+                AttributeModifierResolveSelection.Select(10_000));
+        }
+
+        /// <summary>
         /// 验证同一个 World 不允许重复创建属性流水线。
         /// </summary>
         [Test]
@@ -1582,6 +1665,18 @@ namespace RebornFrame.Spell.Tests
             }
 
             return false;
+        }
+
+        void AssertDirtyCleared(Entity entity)
+        {
+            DynamicBuffer<AttributeModifierChannels> channels =
+                _entityManager.GetBuffer<AttributeModifierChannels>(entity, true);
+            for (int index = 0; index < channels.Length; index++)
+            {
+                Assert.IsFalse(AttributeModifierFlags.Has(
+                    channels[index].Flags,
+                    AttributeModifierFlags.Dirty));
+            }
         }
 
         void SetAttack(
