@@ -46,13 +46,29 @@ namespace RebornFrame.Spell
                 ComponentType.ReadOnly<AttributeModifierWorkspace>());
             if (!query.IsEmptyIgnoreFilter)
             {
-                return query.GetSingletonEntity();
+                Entity existing = query.GetSingletonEntity();
+                EnsureBatchCount(entityManager, existing);
+                return existing;
             }
 
             Entity workspace = entityManager.CreateEntity();
             entityManager.AddComponent<AttributeModifierWorkspace>(workspace);
+            entityManager.AddComponentData(workspace, new AttributeModifierResolveBatchCount());
             entityManager.AddBuffer<AttributeModifierDirtyRef>(workspace);
             return workspace;
+        }
+
+        /// <summary>
+        /// 给已有工作区补上批次计数。新建工作区在创建时已经挂过。
+        /// </summary>
+        /// <param name="entityManager">工作区所在 World 的实体管理器。</param>
+        /// <param name="workspace">工作区实体。</param>
+        static void EnsureBatchCount(EntityManager entityManager, Entity workspace)
+        {
+            if (!entityManager.HasComponent<AttributeModifierResolveBatchCount>(workspace))
+            {
+                entityManager.AddComponentData(workspace, new AttributeModifierResolveBatchCount());
+            }
         }
 
         /// <summary>

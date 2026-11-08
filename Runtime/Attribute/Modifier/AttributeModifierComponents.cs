@@ -142,6 +142,25 @@ namespace RebornFrame.Spell
     {
     }
 
+    /// <summary>
+    /// 这一次 <c>UpdateOnce</c> 指定的结算方式。只在该次调用期间挂在工作区上。
+    /// </summary>
+    internal struct AttributeModifierResolveOverride : IComponentData
+    {
+        /// <summary>这一次使用的结算方式。</summary>
+        public AttributeModifierResolveMode Mode;
+    }
+
+    /// <summary>工作区上两条结算路径各自完成的批次数。</summary>
+    internal struct AttributeModifierResolveBatchCount : IComponentData
+    {
+        /// <summary>主线程结算完成的批次数。</summary>
+        public int Serial;
+
+        /// <summary>按单位并行结算完成的批次数。</summary>
+        public int Parallel;
+    }
+
     /// <summary>本批待结算的脏槽。只记录单位和槽位，不复制通道值。</summary>
     [InternalBufferCapacity(0)]
     internal struct AttributeModifierDirtyRef : IBufferElementData

@@ -500,7 +500,6 @@ namespace RebornFrame.Spell.Tests
         [TearDown]
         public void TearDown()
         {
-            AttributeModifierResolveSelection.PreferredMode = null;
             _pipeline?.Dispose();
             _world?.Dispose();
             if (_layout.IsCreated)
@@ -1535,82 +1534,108 @@ namespace RebornFrame.Spell.Tests
         }
 
         /// <summary>
-        /// 验证按单位并行结算两个单位上的多个属性，并在结束后清掉脏标记。
+        /// 同一组设置分别走主线程和按单位并行。
+        /// 主单位写出 6 条草稿，超过事件草稿的内联容量 4。两条路径的属性快照和重算事件一致。
         /// </summary>
         [Test]
-        public void ParallelResolve_TwoUnits_WritesChannelsAndClearsDirty()
+        public void Resolve_SerialAndParallel_MatchAcrossDraftCapacity()
         {
-            Entity secondUnit = _entityManager.CreateEntity();
-            AttributeAccess.InitializeUnit(_entityManager, secondUnit, _layout);
-            AttributeModifierResolveSelection.PreferredMode = AttributeModifierResolveMode.Parallel;
-            try
-            {
-                Assert.IsTrue(AttributeAccess.TrySetModifier(
-                    _entityManager,
-                    _unit,
-                    AttackId,
-                    1,
-                    AttributeModifierChannel.ExtraAdd,
-                    5));
-                Assert.IsTrue(AttributeAccess.TrySetModifier(
-                    _entityManager,
-                    secondUnit,
-                    AttackId,
-                    2,
-                    AttributeModifierChannel.ExtraAdd,
-                    3));
-                Assert.IsTrue(AttributeAccess.TrySetModifier(
-                    _entityManager,
-                    _unit,
-                    HealthId,
-                    3,
-                    AttributeModifierChannel.ExtraAdd,
-                    20));
+            Entity serialSecond = CreateCapturedUnit();
+            ApplyDraftCapacityLoad(_unit, serialSecond);
+            _pipeline.UpdateOnce();
 
-                _pipeline.UpdateOnce();
-            }
-            finally
-            {
-                AttributeModifierResolveSelection.PreferredMode = null;
-            }
-
-            AttributeAccess.TryRead(
-                _entityManager,
-                _unit,
-                AttackId,
-                out AttributeSnapshot attack);
-            Assert.AreEqual(15, attack.CurrentBits);
-            AttributeAccess.TryRead(
-                _entityManager,
-                _unit,
-                HealthId,
-                out AttributeSnapshot health);
-            Assert.AreEqual(120, health.MaxBits);
-            Assert.AreEqual(120, health.CurrentBits);
-            AttributeAccess.TryRead(
-                _entityManager,
-                secondUnit,
-                AttackId,
-                out AttributeSnapshot secondAttack);
-            Assert.AreEqual(13, secondAttack.CurrentBits);
-
+            AttributeModifierResolveBatchCount afterSerial = ReadBatchCount();
+            Assert.AreEqual(1, afterSerial.Serial);
+            Assert.AreEqual(0, afterSerial.Parallel);
+            AssertNoResolveOverride();
             AssertDirtyCleared(_unit);
-            AssertDirtyCleared(secondUnit);
-            using EntityQuery workspaceQuery = _entityManager.CreateEntityQuery(
-                ComponentType.ReadOnly<AttributeModifierWorkspace>());
-            Entity workspace = workspaceQuery.GetSingletonEntity();
-            Assert.AreEqual(
-                0,
-                _entityManager.GetBuffer<AttributeModifierDirtyRef>(workspace, true).Length);
+            AssertDirtyCleared(serialSecond);
+            Assert.AreEqual(0, DirtyCount());
+            AssertDraftCapacityResults(_unit, serialSecond);
+
+            Entity parallelPrimary = CreateCapturedUnit();
+            Entity parallelSecond = CreateCapturedUnit();
+            ApplyDraftCapacityLoad(parallelPrimary, parallelSecond);
+            _pipeline.UpdateOnce(AttributeModifierResolveMode.Parallel);
+
+            AttributeModifierResolveBatchCount afterParallel = ReadBatchCount();
+            Assert.AreEqual(1, afterParallel.Serial);
+            Assert.AreEqual(1, afterParallel.Parallel);
+            AssertNoResolveOverride();
+            AssertSameSnapshots(_unit, parallelPrimary);
+            AssertSameSnapshot(serialSecond, parallelSecond, AttackId);
+            AssertSameRecalculations(_unit, parallelPrimary);
+            AssertSameRecalculations(serialSecond, parallelSecond);
+            AssertDraftCapacityResults(parallelPrimary, parallelSecond);
+            AssertDirtyCleared(parallelPrimary);
+            AssertDirtyCleared(parallelSecond);
+            Assert.AreEqual(0, DirtyCount());
         }
 
         /// <summary>
-        /// 验证未指定结算方式时，流水线选择主线程。
+        /// 布局暂时对不上时保留脏位和脏引用。布局恢复后，下一次批次仍能结算。
+        /// 失败的一次走按单位并行，恢复后的一次走主线程。
+        /// </summary>
+        [Test]
+        public void Resolve_UnwritableSlot_KeepsDirtyRefUntilWriteSucceeds()
+        {
+            Entity parallelUnit = CreateCapturedUnit();
+            SetExtra(_unit, AttackId, 11, 5);
+            BlobAssetReference<AttributeLayoutBlob> layout =
+                _entityManager.GetComponentData<AttributeLayoutReference>(_unit).Value;
+            _entityManager.RemoveComponent<AttributeLayoutReference>(_unit);
+
+            _pipeline.UpdateOnce();
+
+            AttributeModifierResolveBatchCount afterSerial = ReadBatchCount();
+            Assert.AreEqual(1, afterSerial.Serial);
+            Assert.AreEqual(0, afterSerial.Parallel);
+            Assert.AreEqual(10, ReadSnapshot(_unit, AttackId).CurrentBits);
+            AssertDirtyKept(_unit);
+            Assert.AreEqual(1, DirtyCount());
+            Assert.AreEqual(_unit, ReadDirty(0).Unit);
+
+            _entityManager.AddComponentData(
+                _unit,
+                new AttributeLayoutReference { Value = layout });
+            SetExtra(parallelUnit, AttackId, 12, 5);
+            _entityManager.RemoveComponent<AttributeLayoutReference>(parallelUnit);
+            _pipeline.UpdateOnce(AttributeModifierResolveMode.Parallel);
+
+            AttributeModifierResolveBatchCount afterParallel = ReadBatchCount();
+            Assert.AreEqual(1, afterParallel.Serial);
+            Assert.AreEqual(1, afterParallel.Parallel);
+            AssertNoResolveOverride();
+            Assert.AreEqual(15, ReadSnapshot(_unit, AttackId).CurrentBits);
+            AssertDirtyCleared(_unit);
+            Assert.AreEqual(10, ReadSnapshot(parallelUnit, AttackId).CurrentBits);
+            AssertDirtyKept(parallelUnit);
+            Assert.AreEqual(1, DirtyCount());
+            Assert.AreEqual(parallelUnit, ReadDirty(0).Unit);
+
+            _entityManager.AddComponentData(
+                parallelUnit,
+                new AttributeLayoutReference { Value = layout });
+            _pipeline.UpdateOnce();
+
+            AttributeModifierResolveBatchCount afterRestore = ReadBatchCount();
+            Assert.AreEqual(2, afterRestore.Serial);
+            Assert.AreEqual(1, afterRestore.Parallel);
+            Assert.AreEqual(15, ReadSnapshot(parallelUnit, AttackId).CurrentBits);
+            AssertDirtyCleared(parallelUnit);
+            Assert.AreEqual(0, DirtyCount());
+        }
+
+        /// <summary>
+        /// 验证未指定结算方式时，选择函数返回主线程。
+        /// 流水线是否真的走了对应路径，由带批次计数的用例覆盖。
         /// </summary>
         [Test]
         public void ResolveSelection_WithoutPreference_StaysSerial()
         {
-            AttributeModifierResolveSelection.PreferredMode = null;
+            Assert.AreEqual(
+                AttributeModifierResolveMode.Serial,
+                AttributeModifierResolveSelection.Select(0));
             Assert.AreEqual(
                 AttributeModifierResolveMode.Serial,
                 AttributeModifierResolveSelection.Select(10_000));
@@ -1693,6 +1718,241 @@ namespace RebornFrame.Spell.Tests
                 channel,
                 valueBits,
                 weight));
+        }
+
+        /// <summary>给主单位挂上五条会变化的属性，给另一个单位挂上攻击，一共超出草稿内联容量。</summary>
+        /// <param name="primary">写出 6 条草稿的单位。</param>
+        /// <param name="second">只改攻击的单位。</param>
+        void ApplyDraftCapacityLoad(Entity primary, Entity second)
+        {
+            SetExtra(primary, AttackId, 1, 5);
+            SetExtra(primary, HealthId, 2, 20);
+            SetExtra(primary, UnscaledHealthId, 3, 10);
+            SetExtra(primary, ZeroHealthId, 4, 30);
+            SetExtra(primary, LongAttackId, 5, 7);
+            SetExtra(second, AttackId, 6, 3);
+        }
+
+        /// <summary>核对超出内联容量时两条路径都应得到的属性值和重算事件。</summary>
+        /// <param name="primary">写出 6 条草稿的单位。</param>
+        /// <param name="second">只改攻击的单位。</param>
+        void AssertDraftCapacityResults(Entity primary, Entity second)
+        {
+            AttributeSnapshot attack = ReadSnapshot(primary, AttackId);
+            Assert.AreEqual(10, attack.BaseBits);
+            Assert.AreEqual(15, attack.CurrentBits);
+            AttributeSnapshot health = ReadSnapshot(primary, HealthId);
+            Assert.AreEqual(100, health.BaseBits);
+            Assert.AreEqual(120, health.MaxBits);
+            Assert.AreEqual(120, health.CurrentBits);
+            AttributeSnapshot unscaled = ReadSnapshot(primary, UnscaledHealthId);
+            Assert.AreEqual(110, unscaled.MaxBits);
+            Assert.AreEqual(100, unscaled.CurrentBits);
+            AttributeSnapshot zero = ReadSnapshot(primary, ZeroHealthId);
+            Assert.AreEqual(30, zero.MaxBits);
+            Assert.AreEqual(0, zero.CurrentBits);
+            Assert.AreEqual(7, ReadSnapshot(primary, LongAttackId).CurrentBits);
+            Assert.AreEqual(13, ReadSnapshot(second, AttackId).CurrentBits);
+
+            DynamicBuffer<CapturedAttributeResolvedEvent> events =
+                _entityManager.GetBuffer<CapturedAttributeResolvedEvent>(primary, true);
+            Assert.AreEqual(6, events.Length);
+            AssertRecalculation(events[0].Value, AttackId, AttributeValueTarget.Current, 10, 15);
+            AssertRecalculation(events[1].Value, HealthId, AttributeValueTarget.Max, 100, 120);
+            AssertRecalculation(events[2].Value, HealthId, AttributeValueTarget.Current, 100, 120);
+            AssertRecalculation(events[3].Value, UnscaledHealthId, AttributeValueTarget.Max, 100, 110);
+            AssertRecalculation(events[4].Value, ZeroHealthId, AttributeValueTarget.Max, 0, 30);
+            AssertRecalculation(events[5].Value, LongAttackId, AttributeValueTarget.Current, 0, 7);
+            DynamicBuffer<CapturedAttributeResolvedEvent> secondEvents =
+                _entityManager.GetBuffer<CapturedAttributeResolvedEvent>(second, true);
+            Assert.AreEqual(1, secondEvents.Length);
+            AssertRecalculation(secondEvents[0].Value, AttackId, AttributeValueTarget.Current, 10, 13);
+        }
+
+        /// <summary>
+        /// 给单位设置一条 ExtraAdd 贡献。
+        /// </summary>
+        /// <param name="unit">目标单位。</param>
+        /// <param name="attributeId">属性。</param>
+        /// <param name="buffInstanceId">Buff 实例。</param>
+        /// <param name="valueBits">加值。</param>
+        void SetExtra(Entity unit, AttributeId attributeId, long buffInstanceId, long valueBits)
+        {
+            Assert.IsTrue(AttributeAccess.TrySetModifier(
+                _entityManager,
+                unit,
+                attributeId,
+                buffInstanceId,
+                AttributeModifierChannel.ExtraAdd,
+                valueBits));
+        }
+
+        /// <summary>
+        /// 创建带捕获缓冲的单位，发布后的重算事件会留在这个单位上。
+        /// </summary>
+        /// <returns>新建单位。</returns>
+        Entity CreateCapturedUnit()
+        {
+            Entity entity = _entityManager.CreateEntity();
+            AttributeAccess.InitializeUnit(_entityManager, entity, _layout);
+            _entityManager.AddBuffer<CapturedAttributeResolvedEvent>(entity);
+            _entityManager.AddBuffer<CapturedAttributeResolvedEventTag>(entity);
+            return entity;
+        }
+
+        /// <summary>
+        /// 读取单位上的属性快照。
+        /// </summary>
+        /// <param name="unit">目标单位。</param>
+        /// <param name="attributeId">属性。</param>
+        /// <returns>当前快照。</returns>
+        AttributeSnapshot ReadSnapshot(Entity unit, AttributeId attributeId)
+        {
+            Assert.IsTrue(AttributeAccess.TryRead(
+                _entityManager,
+                unit,
+                attributeId,
+                out AttributeSnapshot snapshot));
+            return snapshot;
+        }
+
+        /// <summary>比对两个单位的全部测试属性快照。</summary>
+        /// <param name="left">左单位。</param>
+        /// <param name="right">右单位。</param>
+        void AssertSameSnapshots(Entity left, Entity right)
+        {
+            AssertSameSnapshot(left, right, AttackId);
+            AssertSameSnapshot(left, right, HealthId);
+            AssertSameSnapshot(left, right, HiddenId);
+            AssertSameSnapshot(left, right, UnscaledHealthId);
+            AssertSameSnapshot(left, right, ZeroHealthId);
+            AssertSameSnapshot(left, right, LongAttackId);
+        }
+
+        /// <summary>比对两个单位同一属性的快照。</summary>
+        /// <param name="left">左单位。</param>
+        /// <param name="right">右单位。</param>
+        /// <param name="attributeId">属性。</param>
+        void AssertSameSnapshot(Entity left, Entity right, AttributeId attributeId)
+        {
+            AttributeSnapshot leftSnapshot = ReadSnapshot(left, attributeId);
+            AttributeSnapshot rightSnapshot = ReadSnapshot(right, attributeId);
+            Assert.AreEqual(leftSnapshot.ValueKind, rightSnapshot.ValueKind);
+            Assert.AreEqual(leftSnapshot.Behavior, rightSnapshot.Behavior);
+            Assert.AreEqual(leftSnapshot.DefaultBits, rightSnapshot.DefaultBits);
+            Assert.AreEqual(leftSnapshot.BaseBits, rightSnapshot.BaseBits);
+            Assert.AreEqual(leftSnapshot.CurrentBits, rightSnapshot.CurrentBits);
+            Assert.AreEqual(leftSnapshot.MaxBits, rightSnapshot.MaxBits);
+        }
+
+        /// <summary>按发布顺序比对两个单位捕获到的重算事件。</summary>
+        /// <param name="left">左单位。</param>
+        /// <param name="right">右单位。</param>
+        void AssertSameRecalculations(Entity left, Entity right)
+        {
+            DynamicBuffer<CapturedAttributeResolvedEvent> leftEvents =
+                _entityManager.GetBuffer<CapturedAttributeResolvedEvent>(left, true);
+            DynamicBuffer<CapturedAttributeResolvedEvent> rightEvents =
+                _entityManager.GetBuffer<CapturedAttributeResolvedEvent>(right, true);
+            Assert.AreEqual(leftEvents.Length, rightEvents.Length);
+            for (int index = 0; index < leftEvents.Length; index++)
+            {
+                AttributeResolvedEvent leftEvent = leftEvents[index].Value;
+                AttributeResolvedEvent rightEvent = rightEvents[index].Value;
+                Assert.AreEqual(leftEvent.EventId, rightEvent.EventId);
+                Assert.AreEqual(leftEvent.RequestId, rightEvent.RequestId);
+                Assert.AreEqual(leftEvent.Kind, rightEvent.Kind);
+                Assert.AreEqual(leftEvent.AttributeId, rightEvent.AttributeId);
+                Assert.AreEqual(leftEvent.ValueKind, rightEvent.ValueKind);
+                Assert.AreEqual(leftEvent.Target, rightEvent.Target);
+                Assert.AreEqual(leftEvent.OldBits, rightEvent.OldBits);
+                Assert.AreEqual(leftEvent.NewBits, rightEvent.NewBits);
+                Assert.AreEqual(leftEvent.DeltaBits, rightEvent.DeltaBits);
+            }
+        }
+
+        /// <summary>核对一条重算事件的属性、目标和新旧值。</summary>
+        /// <param name="resolved">已发布事件。</param>
+        /// <param name="attributeId">期望属性。</param>
+        /// <param name="target">期望写入位置。</param>
+        /// <param name="oldBits">期望旧值。</param>
+        /// <param name="newBits">期望新值。</param>
+        void AssertRecalculation(
+            AttributeResolvedEvent resolved,
+            AttributeId attributeId,
+            AttributeValueTarget target,
+            long oldBits,
+            long newBits)
+        {
+            Assert.AreEqual(AttributeResolvedEventKind.Recalculated, resolved.Kind);
+            Assert.AreEqual(0, resolved.RequestId);
+            Assert.AreEqual(0, resolved.DeltaBits);
+            Assert.AreEqual(attributeId, resolved.AttributeId);
+            Assert.AreEqual(target, resolved.Target);
+            Assert.AreEqual(oldBits, resolved.OldBits);
+            Assert.AreEqual(newBits, resolved.NewBits);
+        }
+
+        /// <summary>读取工作区上的结算批次计数。</summary>
+        /// <returns>主线程和并行各自完成的批次数。</returns>
+        AttributeModifierResolveBatchCount ReadBatchCount()
+        {
+            using EntityQuery query = _entityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<AttributeModifierWorkspace>());
+            return _entityManager.GetComponentData<AttributeModifierResolveBatchCount>(
+                query.GetSingletonEntity());
+        }
+
+        /// <summary>确认这次指定的结算方式没有留在工作区上。</summary>
+        void AssertNoResolveOverride()
+        {
+            using EntityQuery query = _entityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<AttributeModifierWorkspace>());
+            Assert.IsFalse(_entityManager.HasComponent<AttributeModifierResolveOverride>(
+                query.GetSingletonEntity()));
+        }
+
+        /// <summary>读取工作区脏列表长度。</summary>
+        /// <returns>当前脏引用数量。</returns>
+        int DirtyCount()
+        {
+            using EntityQuery query = _entityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<AttributeModifierWorkspace>());
+            return _entityManager.GetBuffer<AttributeModifierDirtyRef>(
+                query.GetSingletonEntity(),
+                true).Length;
+        }
+
+        /// <summary>读取工作区脏列表中的一条引用。</summary>
+        /// <param name="index">列表下标。</param>
+        /// <returns>脏引用。</returns>
+        AttributeModifierDirtyRef ReadDirty(int index)
+        {
+            using EntityQuery query = _entityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<AttributeModifierWorkspace>());
+            return _entityManager.GetBuffer<AttributeModifierDirtyRef>(
+                query.GetSingletonEntity(),
+                true)[index];
+        }
+
+        /// <summary>确认单位上仍有脏标记。写不回去时脏位必须保持为 1。</summary>
+        /// <param name="entity">目标单位。</param>
+        void AssertDirtyKept(Entity entity)
+        {
+            DynamicBuffer<AttributeModifierChannels> channels =
+                _entityManager.GetBuffer<AttributeModifierChannels>(entity, true);
+            bool dirty = false;
+            for (int index = 0; index < channels.Length; index++)
+            {
+                if (AttributeModifierFlags.Has(
+                        channels[index].Flags,
+                        AttributeModifierFlags.Dirty))
+                {
+                    dirty = true;
+                }
+            }
+
+            Assert.IsTrue(dirty);
         }
 
     }

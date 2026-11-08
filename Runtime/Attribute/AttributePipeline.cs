@@ -108,6 +108,35 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
+        /// 推进一次属性批次，并指定这一次修改器结算方式。
+        /// 方式只挂在这个 World 的工作区上，调用结束后移除，不留给下一次，也不影响其他 World。
+        /// </summary>
+        /// <param name="mode">这一次使用的结算方式。</param>
+        /// <exception cref="ObjectDisposedException">流水线或其 World 已被释放。</exception>
+        internal void UpdateOnce(AttributeModifierResolveMode mode)
+        {
+            ThrowIfUnavailable();
+            EntityManager entityManager = _world.EntityManager;
+            Entity workspace = AttributeModifierAccess.EnsureWorkspace(entityManager);
+            entityManager.AddComponentData(
+                workspace,
+                new AttributeModifierResolveOverride { Mode = mode });
+            try
+            {
+                _pipelineGroup.Update();
+            }
+            finally
+            {
+                if (_world.IsCreated
+                    && entityManager.Exists(workspace)
+                    && entityManager.HasComponent<AttributeModifierResolveOverride>(workspace))
+                {
+                    entityManager.RemoveComponent<AttributeModifierResolveOverride>(workspace);
+                }
+            }
+        }
+
+        /// <summary>
         /// 销毁本门面创建的属性系统；重复调用不会产生效果。
         /// </summary>
         public void Dispose()
