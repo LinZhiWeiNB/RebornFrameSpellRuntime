@@ -41,6 +41,39 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
+        /// 直接用状态上的通道合计计算公式。调用方保证本批计算期间这条状态不再被改写。
+        /// </summary>
+        /// <param name="state">单位上的修改器状态。</param>
+        /// <param name="newBase">基础阶段结果。</param>
+        /// <param name="newFinal">最终阶段结果。</param>
+        internal static void Evaluate(
+            in AttributeModifierState state,
+            out long newBase,
+            out long newFinal)
+        {
+            bool nonNegative = state.NonNegative != 0;
+            newBase = EvaluateStage(
+                state.HasBaseOverride != 0,
+                state.BaseOverrideBits,
+                state.BaseBits,
+                state.BaseAdd,
+                state.BasePercent,
+                state.ValueKind,
+                nonNegative);
+            long extra = EvaluateStage(
+                state.HasExtraOverride != 0,
+                state.ExtraOverrideBits,
+                newBase,
+                state.ExtraAdd,
+                state.ExtraPercent,
+                state.ValueKind,
+                nonNegative);
+            newFinal = state.HasFinalOverride != 0
+                ? WideMath.Normalize(state.ValueKind, state.FinalOverrideBits, nonNegative)
+                : extra;
+        }
+
+        /// <summary>
         /// 计算一个阶段。存在重载时忽略该阶段的加值和百分比。
         /// </summary>
         /// <param name="hasOverride">是否存在重载。</param>

@@ -51,7 +51,6 @@ namespace RebornFrame.Spell
             _resolvedEventClearSystem =
                 world.GetOrCreateSystem<AttributeResolvedEventClearSystem>();
 
-            _modifierGroup.AddSystemToUpdateList(_modifierSealSystem);
             _modifierGroup.AddSystemToUpdateList(_modifierCalcSystem);
             _modifierGroup.SortSystems();
 

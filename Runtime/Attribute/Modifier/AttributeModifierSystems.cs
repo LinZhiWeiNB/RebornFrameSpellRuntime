@@ -94,16 +94,16 @@ namespace RebornFrame.Spell
     }
 
     /// <summary>
-    /// 按封存顺序计算公式，并立刻写回属性。不产出中间结果，也不再调度单独的计算或写回作业。
+    /// 沿脏列表直接计算公式并写回。计算循环不产生新的脏记录，所以不再先抄一份快照。
+    /// 处理完当前列表后清空；本批之后的新设置留到下一次。
     /// </summary>
     [BurstCompile]
     [DisableAutoCreation]
     [UpdateInGroup(typeof(AttributeModifierSystemGroup))]
-    [UpdateAfter(typeof(AttributeModifierSealSystem))]
     public partial struct AttributeModifierCalcSystem : ISystem
     {
         /// <summary>
-        /// 按封存顺序逐条计算并写回。没有脏槽时直接返回。
+        /// 逐条读取脏状态、计算并写回，然后清空脏列表。没有脏槽时直接返回。
         /// </summary>
         /// <param name="state">系统状态。</param>
         [BurstCompile]
@@ -114,58 +114,112 @@ namespace RebornFrame.Spell
                 return;
             }
 
-            DynamicBuffer<AttributeModifierCalcInput> inputs =
-                SystemAPI.GetBuffer<AttributeModifierCalcInput>(workspace);
-            int count = inputs.Length;
+            DynamicBuffer<AttributeModifierDirtyRef> dirty =
+                SystemAPI.GetBuffer<AttributeModifierDirtyRef>(workspace);
+            int count = dirty.Length;
             if (count == 0)
             {
                 return;
             }
 
+            BufferLookup<AttributeModifierState> states =
+                SystemAPI.GetBufferLookup<AttributeModifierState>();
             BufferLookup<AttributeValueSlot> values =
                 SystemAPI.GetBufferLookup<AttributeValueSlot>();
             BufferLookup<AttributeResolvedEventDraft> drafts =
                 SystemAPI.GetBufferLookup<AttributeResolvedEventDraft>();
             for (int index = 0; index < count; index++)
             {
-                AttributeModifierCalcInput input = inputs[index];
-                AttributeModifierMath.Evaluate(in input, out long newBase, out long newFinal);
-                Apply(in input, newBase, newFinal, ref values, ref drafts);
+                AttributeModifierDirtyRef reference = dirty[index];
+                if (!states.HasBuffer(reference.Unit))
+                {
+                    continue;
+                }
+
+                DynamicBuffer<AttributeModifierState> unitStates = states[reference.Unit];
+                if ((uint)reference.Slot >= (uint)unitStates.Length)
+                {
+                    continue;
+                }
+
+                ref AttributeModifierState modifier = ref unitStates.ElementAt(reference.Slot);
+                if (modifier.Dirty == 0)
+                {
+                    continue;
+                }
+
+                AttributeModifierMath.Evaluate(in modifier, out long newBase, out long newFinal);
+                // 先清脏再写属性。写草稿不会往脏列表追加，当前下标范围保持有效。
+                int slot = modifier.Slot;
+                AttributeId attributeId = modifier.Id;
+                AttributeBehavior behavior = modifier.Behavior;
+                AttributeValueKind valueKind = modifier.ValueKind;
+                byte scaleCurrentWithMax = modifier.ScaleCurrentWithMax;
+                modifier.Dirty = 0;
+                Apply(
+                    reference.Unit,
+                    slot,
+                    attributeId,
+                    behavior,
+                    valueKind,
+                    scaleCurrentWithMax,
+                    newBase,
+                    newFinal,
+                    ref values,
+                    ref drafts);
             }
+
+            dirty.Clear();
         }
 
         /// <summary>
-        /// 把这一条封存输入的公式结果写入属性槽。资源同时处理 Max 和 Current。
+        /// 把公式结果写入属性槽。资源同时处理 Max 和 Current。
         /// </summary>
-        /// <param name="input">封存的热快照。</param>
+        /// <param name="unit">目标单位。</param>
+        /// <param name="slot">属性槽位。</param>
+        /// <param name="attributeId">属性标识。</param>
+        /// <param name="behavior">行为分类。</param>
+        /// <param name="valueKind">值类型。</param>
+        /// <param name="scaleCurrentWithMax">非零时资源 Current 随 Max 缩放。</param>
         /// <param name="newBase">计算出的基础值。</param>
         /// <param name="newFinal">计算出的最终值。</param>
         /// <param name="values">单位属性值。</param>
         /// <param name="drafts">单位事件草稿。</param>
         static void Apply(
-            in AttributeModifierCalcInput input,
+            Entity unit,
+            int slot,
+            AttributeId attributeId,
+            AttributeBehavior behavior,
+            AttributeValueKind valueKind,
+            byte scaleCurrentWithMax,
             long newBase,
             long newFinal,
             ref BufferLookup<AttributeValueSlot> values,
             ref BufferLookup<AttributeResolvedEventDraft> drafts)
         {
-            if (!values.HasBuffer(input.Unit) || !drafts.HasBuffer(input.Unit))
+            if (!values.HasBuffer(unit) || !drafts.HasBuffer(unit))
             {
                 return;
             }
 
-            DynamicBuffer<AttributeValueSlot> unitValues = values[input.Unit];
-            if ((uint)input.Slot >= (uint)unitValues.Length)
+            DynamicBuffer<AttributeValueSlot> unitValues = values[unit];
+            if ((uint)slot >= (uint)unitValues.Length)
             {
                 return;
             }
 
-            DynamicBuffer<AttributeResolvedEventDraft> unitDrafts = drafts[input.Unit];
-            ref AttributeValueSlot value = ref unitValues.ElementAt(input.Slot);
+            DynamicBuffer<AttributeResolvedEventDraft> unitDrafts = drafts[unit];
+            ref AttributeValueSlot value = ref unitValues.ElementAt(slot);
             value.BaseBits = newBase;
-            if (input.Behavior == AttributeBehavior.Resource)
+            if (behavior == AttributeBehavior.Resource)
             {
-                ApplyResource(in input, newFinal, ref value, unitDrafts);
+                ApplyResource(
+                    attributeId,
+                    valueKind,
+                    scaleCurrentWithMax,
+                    newFinal,
+                    ref value,
+                    unitDrafts);
                 return;
             }
 
@@ -173,21 +227,26 @@ namespace RebornFrame.Spell
             value.CurrentBits = newFinal;
             AddDraftIfChanged(
                 unitDrafts,
-                in input,
+                attributeId,
+                valueKind,
                 AttributeValueTarget.Current,
                 oldCurrent,
                 newFinal);
         }
 
         /// <summary>
-        /// 把资源的 Max 和 Current 写入属性槽。Current 先按快照上的缩放标记处理，再限制在 <c>[0, Max]</c>。
+        /// 把资源的 Max 和 Current 写入属性槽。Current 先按缩放标记处理，再限制在 <c>[0, Max]</c>。
         /// </summary>
-        /// <param name="input">封存的热快照。</param>
+        /// <param name="attributeId">属性标识。</param>
+        /// <param name="valueKind">值类型。</param>
+        /// <param name="scaleCurrentWithMax">非零时资源 Current 随 Max 缩放。</param>
         /// <param name="newFinal">计算出的最终值，资源解释为 Max。</param>
         /// <param name="value">单位上的这一格属性值。</param>
         /// <param name="drafts">单位事件草稿。</param>
         static void ApplyResource(
-            in AttributeModifierCalcInput input,
+            AttributeId attributeId,
+            AttributeValueKind valueKind,
+            byte scaleCurrentWithMax,
             long newFinal,
             ref AttributeValueSlot value,
             DynamicBuffer<AttributeResolvedEventDraft> drafts)
@@ -196,9 +255,9 @@ namespace RebornFrame.Spell
             long oldCurrent = value.CurrentBits;
             long newMax = newFinal < 0 ? 0 : newFinal;
             long candidate = oldCurrent;
-            if (input.ScaleCurrentWithMax != 0 && oldMax > 0)
+            if (scaleCurrentWithMax != 0 && oldMax > 0)
             {
-                candidate = input.ValueKind == AttributeValueKind.Fixed64
+                candidate = valueKind == AttributeValueKind.Fixed64
                     ? ScaleFixedCurrent(oldCurrent, newMax, oldMax)
                     : WideMath.MultiplyDivideRounded(oldCurrent, newMax, oldMax);
             }
@@ -210,10 +269,11 @@ namespace RebornFrame.Spell
                     : candidate;
             value.MaxBits = newMax;
             value.CurrentBits = newCurrent;
-            AddDraftIfChanged(drafts, in input, AttributeValueTarget.Max, oldMax, newMax);
+            AddDraftIfChanged(drafts, attributeId, valueKind, AttributeValueTarget.Max, oldMax, newMax);
             AddDraftIfChanged(
                 drafts,
-                in input,
+                attributeId,
+                valueKind,
                 AttributeValueTarget.Current,
                 oldCurrent,
                 newCurrent);
@@ -223,13 +283,15 @@ namespace RebornFrame.Spell
         /// 新旧值不同时追加一条重算草稿。
         /// </summary>
         /// <param name="drafts">单位事件草稿。</param>
-        /// <param name="input">封存的热快照。</param>
+        /// <param name="attributeId">属性标识。</param>
+        /// <param name="valueKind">值类型。</param>
         /// <param name="target">写入位置。</param>
         /// <param name="oldBits">写入前的原始值。</param>
         /// <param name="newBits">写入后的原始值。</param>
         static void AddDraftIfChanged(
             DynamicBuffer<AttributeResolvedEventDraft> drafts,
-            in AttributeModifierCalcInput input,
+            AttributeId attributeId,
+            AttributeValueKind valueKind,
             AttributeValueTarget target,
             long oldBits,
             long newBits)
@@ -243,8 +305,8 @@ namespace RebornFrame.Spell
             {
                 RequestId = 0,
                 Kind = AttributeResolvedEventKind.Recalculated,
-                AttributeId = input.AttributeId,
-                ValueKind = input.ValueKind,
+                AttributeId = attributeId,
+                ValueKind = valueKind,
                 Target = target,
                 OldBits = oldBits,
                 NewBits = newBits,
