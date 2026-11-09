@@ -97,7 +97,8 @@ namespace RebornFrame.Spell
     }
 
     /// <summary>
-    /// 并行计算公式结果。只读热快照，不写属性和事件。
+    /// 测试版本：封存已经把脏槽收成连续快照。这里直接计算并写回属性，不再产出中间结果，也不再调度单独的计算作业。
+    /// 随后的写回系统看到空结果就会返回。设置、封存和公式保持原样。
     /// </summary>
     [BurstCompile]
     [DisableAutoCreation]
@@ -107,7 +108,7 @@ namespace RebornFrame.Spell
     public partial struct AttributeModifierCalcSystem : ISystem
     {
         /// <summary>
-        /// 对封存快照执行并行计算，并把结果留在工作区。
+        /// 按封存顺序逐条计算并写回。结果缓冲清空，避免写回系统再写一次。
         /// </summary>
         /// <param name="state">系统状态。</param>
         [BurstCompile]
@@ -129,47 +130,156 @@ namespace RebornFrame.Spell
                 return;
             }
 
-            NativeArray<AttributeModifierCalcResult> calculated =
-                new NativeArray<AttributeModifierCalcResult>(count, Allocator.TempJob);
-            new CalcJob
-            {
-                Inputs = inputs.AsNativeArray(),
-                Results = calculated,
-            }.Schedule(count, 32).Complete();
-
+            BufferLookup<AttributeValueSlot> values =
+                SystemAPI.GetBufferLookup<AttributeValueSlot>();
+            BufferLookup<AttributeResolvedEventDraft> drafts =
+                SystemAPI.GetBufferLookup<AttributeResolvedEventDraft>();
             for (int index = 0; index < count; index++)
             {
-                results.Add(calculated[index]);
+                AttributeModifierCalcInput input = inputs[index];
+                AttributeModifierMath.Evaluate(in input, out long newBase, out long newFinal);
+                Apply(in input, newBase, newFinal, ref values, ref drafts);
             }
-
-            calculated.Dispose();
         }
 
-        [BurstCompile]
-        struct CalcJob : IJobParallelFor
+        /// <summary>
+        /// 把这一条封存输入的公式结果写入属性槽。资源同时处理 Max 和 Current。
+        /// </summary>
+        /// <param name="input">封存的热快照。</param>
+        /// <param name="newBase">计算出的基础值。</param>
+        /// <param name="newFinal">计算出的最终值。</param>
+        /// <param name="values">单位属性值。</param>
+        /// <param name="drafts">单位事件草稿。</param>
+        static void Apply(
+            in AttributeModifierCalcInput input,
+            long newBase,
+            long newFinal,
+            ref BufferLookup<AttributeValueSlot> values,
+            ref BufferLookup<AttributeResolvedEventDraft> drafts)
         {
-            [ReadOnly]
-            public NativeArray<AttributeModifierCalcInput> Inputs;
-
-            public NativeArray<AttributeModifierCalcResult> Results;
-
-            public void Execute(int index)
+            if (!values.HasBuffer(input.Unit) || !drafts.HasBuffer(input.Unit))
             {
-                AttributeModifierCalcInput input = Inputs[index];
-                AttributeModifierMath.Evaluate(in input, out long newBase, out long newFinal);
-                Results[index] = new AttributeModifierCalcResult
-                {
-                    Unit = input.Unit,
-                    Slot = input.Slot,
-                    AttributeId = input.AttributeId,
-                    StableId = input.StableId,
-                    Behavior = input.Behavior,
-                    ValueKind = input.ValueKind,
-                    ScaleCurrentWithMax = input.ScaleCurrentWithMax,
-                    NewBase = newBase,
-                    NewFinal = newFinal,
-                };
+                return;
             }
+
+            DynamicBuffer<AttributeValueSlot> unitValues = values[input.Unit];
+            if ((uint)input.Slot >= (uint)unitValues.Length)
+            {
+                return;
+            }
+
+            DynamicBuffer<AttributeResolvedEventDraft> unitDrafts = drafts[input.Unit];
+            ref AttributeValueSlot value = ref unitValues.ElementAt(input.Slot);
+            value.BaseBits = newBase;
+            if (input.Behavior == AttributeBehavior.Resource)
+            {
+                ApplyResource(in input, newFinal, ref value, unitDrafts);
+                return;
+            }
+
+            long oldCurrent = value.CurrentBits;
+            value.CurrentBits = newFinal;
+            AddDraftIfChanged(
+                unitDrafts,
+                in input,
+                AttributeValueTarget.Current,
+                oldCurrent,
+                newFinal);
+        }
+
+        /// <summary>
+        /// 把资源的 Max 和 Current 写入属性槽。Current 先按快照上的缩放标记处理，再限制在 <c>[0, Max]</c>。
+        /// </summary>
+        /// <param name="input">封存的热快照。</param>
+        /// <param name="newFinal">计算出的最终值，资源解释为 Max。</param>
+        /// <param name="value">单位上的这一格属性值。</param>
+        /// <param name="drafts">单位事件草稿。</param>
+        static void ApplyResource(
+            in AttributeModifierCalcInput input,
+            long newFinal,
+            ref AttributeValueSlot value,
+            DynamicBuffer<AttributeResolvedEventDraft> drafts)
+        {
+            long oldMax = value.MaxBits;
+            long oldCurrent = value.CurrentBits;
+            long newMax = newFinal < 0 ? 0 : newFinal;
+            long candidate = oldCurrent;
+            if (input.ScaleCurrentWithMax != 0 && oldMax > 0)
+            {
+                candidate = input.ValueKind == AttributeValueKind.Fixed64
+                    ? ScaleFixedCurrent(oldCurrent, newMax, oldMax)
+                    : WideMath.MultiplyDivideRounded(oldCurrent, newMax, oldMax);
+            }
+
+            long newCurrent = candidate < 0
+                ? 0
+                : candidate > newMax
+                    ? newMax
+                    : candidate;
+            value.MaxBits = newMax;
+            value.CurrentBits = newCurrent;
+            AddDraftIfChanged(drafts, in input, AttributeValueTarget.Max, oldMax, newMax);
+            AddDraftIfChanged(
+                drafts,
+                in input,
+                AttributeValueTarget.Current,
+                oldCurrent,
+                newCurrent);
+        }
+
+        /// <summary>
+        /// 新旧值不同时追加一条重算草稿。
+        /// </summary>
+        /// <param name="drafts">单位事件草稿。</param>
+        /// <param name="input">封存的热快照。</param>
+        /// <param name="target">写入位置。</param>
+        /// <param name="oldBits">写入前的原始值。</param>
+        /// <param name="newBits">写入后的原始值。</param>
+        static void AddDraftIfChanged(
+            DynamicBuffer<AttributeResolvedEventDraft> drafts,
+            in AttributeModifierCalcInput input,
+            AttributeValueTarget target,
+            long oldBits,
+            long newBits)
+        {
+            if (oldBits == newBits)
+            {
+                return;
+            }
+
+            drafts.Add(new AttributeResolvedEventDraft
+            {
+                RequestId = 0,
+                Kind = AttributeResolvedEventKind.Recalculated,
+                AttributeId = input.AttributeId,
+                ValueKind = input.ValueKind,
+                Target = target,
+                OldBits = oldBits,
+                NewBits = newBits,
+                DeltaBits = 0,
+                Recalculation = 1,
+            });
+        }
+
+        /// <summary>
+        /// 按 Q32.32 把当前值随 Max 比例缩放。融合乘除失败时饱和到最大值。
+        /// </summary>
+        /// <param name="oldCurrent">缩放前的当前值。</param>
+        /// <param name="newMax">新的 Max。</param>
+        /// <param name="oldMax">旧的 Max。</param>
+        /// <returns>缩放后的当前值。</returns>
+        static long ScaleFixedCurrent(long oldCurrent, long newMax, long oldMax)
+        {
+            if (!Fixed64.TryMultiplyDivide(
+                    Fixed64.FromRaw(oldCurrent),
+                    Fixed64.FromRaw(newMax),
+                    Fixed64.FromRaw(oldMax),
+                    out Fixed64 scaled))
+            {
+                return Fixed64.MaxValue.m_rawValue;
+            }
+
+            return scaled.m_rawValue;
         }
     }
 
