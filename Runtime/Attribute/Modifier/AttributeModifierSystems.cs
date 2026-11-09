@@ -46,7 +46,7 @@ namespace RebornFrame.Spell
         internal const int MaxDraftsPerSlot = 2;
 
         /// <summary>
-        /// 读取单位上该槽的热记录和布局，写回属性值，并在数值变化时留下草稿。
+        /// 读取单位上该槽的热记录和属性值，写回属性值，并在数值变化时留下草稿。
         /// 写回成功后才清脏位。写不回去时保留脏位。
         /// </summary>
         /// <param name="unit">目标单位。</param>
@@ -55,7 +55,6 @@ namespace RebornFrame.Spell
         /// <param name="channelsLookup">单位热记录。</param>
         /// <param name="valuesLookup">单位属性值。</param>
         /// <param name="draftsLookup">单位事件草稿。</param>
-        /// <param name="layouts">单位布局。</param>
         /// <returns>这条脏引用可以离开列表时返回 true。需要留到下一次批次时返回 false。</returns>
         internal static bool ResolveOne(
             Entity unit,
@@ -63,8 +62,7 @@ namespace RebornFrame.Spell
             ref EntityStorageInfoLookup entities,
             ref BufferLookup<AttributeModifierChannels> channelsLookup,
             ref BufferLookup<AttributeValueSlot> valuesLookup,
-            ref BufferLookup<AttributeResolvedEventDraft> draftsLookup,
-            ref ComponentLookup<AttributeLayoutReference> layouts)
+            ref BufferLookup<AttributeResolvedEventDraft> draftsLookup)
         {
             // 单位已经销毁，热记录一起消失，这条引用没有可写的目标。
             if (!entities.Exists(unit))
@@ -74,44 +72,31 @@ namespace RebornFrame.Spell
 
             if (!channelsLookup.HasBuffer(unit)
                 || !valuesLookup.HasBuffer(unit)
-                || !draftsLookup.HasBuffer(unit)
-                || !layouts.HasComponent(unit))
+                || !draftsLookup.HasBuffer(unit))
             {
                 return false;
             }
 
             DynamicBuffer<AttributeModifierChannels> channels = channelsLookup[unit];
             DynamicBuffer<AttributeValueSlot> values = valuesLookup[unit];
-            BlobAssetReference<AttributeLayoutBlob> layout = layouts[unit].Value;
-            if (!layout.IsCreated
-                || (uint)slot >= (uint)channels.Length
-                || (uint)slot >= (uint)values.Length
-                || (uint)slot >= (uint)layout.Value.Entries.Length)
+            if ((uint)slot >= (uint)channels.Length || (uint)slot >= (uint)values.Length)
             {
                 return false;
             }
 
-            ref AttributeModifierChannels hot = ref channels.ElementAt(slot);
+            // 先抄出热记录。后面追加草稿会让安全检查作废缓冲引用。
+            AttributeModifierChannels hot = channels.ElementAt(slot);
             if (!AttributeModifierFlags.Has(hot.Flags, AttributeModifierFlags.Dirty))
             {
                 return true;
             }
 
-            ref AttributeLayoutEntry entry = ref layout.Value.Entries[slot];
             AttributeModifierMath.Evaluate(
                 hot,
-                entry.DefaultBits,
-                entry.Definition.ValueKind,
-                entry.Definition.NonNegative != 0,
+                values.ElementAt(slot).DefaultBits,
                 out long newBase,
                 out long newFinal);
-            if (!Apply(
-                    slot,
-                    entry.Definition,
-                    newBase,
-                    newFinal,
-                    values,
-                    draftsLookup[unit]))
+            if (!Apply(slot, hot, newBase, newFinal, values, draftsLookup[unit]))
             {
                 return false;
             }
@@ -130,7 +115,7 @@ namespace RebornFrame.Spell
         /// 把基础值和最终值写入属性槽。资源同时处理 Max 和 Current。
         /// </summary>
         /// <param name="slot">属性槽位。</param>
-        /// <param name="definition">该槽的属性定义。</param>
+        /// <param name="hot">该槽的热记录。行为、缩放、属性 ID 和值类型都从这里读。</param>
         /// <param name="newBase">计算出的基础值。</param>
         /// <param name="newFinal">计算出的最终值。</param>
         /// <param name="values">单位属性值。</param>
@@ -138,7 +123,7 @@ namespace RebornFrame.Spell
         /// <returns>槽位有效并已写回时返回 true。</returns>
         static bool Apply(
             int slot,
-            in AttributeDefinition definition,
+            in AttributeModifierChannels hot,
             long newBase,
             long newFinal,
             DynamicBuffer<AttributeValueSlot> values,
@@ -151,9 +136,9 @@ namespace RebornFrame.Spell
 
             ref AttributeValueSlot value = ref values.ElementAt(slot);
             value.BaseBits = newBase;
-            if (definition.Behavior == AttributeBehavior.Resource)
+            if (hot.Behavior == AttributeBehavior.Resource)
             {
-                ApplyResource(definition, newFinal, ref value, drafts);
+                ApplyResource(hot, newFinal, ref value, drafts);
                 return true;
             }
 
@@ -161,15 +146,23 @@ namespace RebornFrame.Spell
             value.CurrentBits = newFinal;
             AddDraftIfChanged(
                 drafts,
-                definition,
+                hot.Id,
+                hot.ValueKind,
                 AttributeValueTarget.Current,
                 oldCurrent,
                 newFinal);
             return true;
         }
 
+        /// <summary>
+        /// 把资源的 Max 和 Current 写入属性槽。Current 先按热记录上的缩放标记处理，再限制在 <c>[0, Max]</c>。
+        /// </summary>
+        /// <param name="hot">该槽的热记录。</param>
+        /// <param name="newFinal">计算出的最终值，资源解释为 Max。</param>
+        /// <param name="value">单位上的这一格属性值。</param>
+        /// <param name="drafts">单位事件草稿。</param>
         static void ApplyResource(
-            in AttributeDefinition definition,
+            in AttributeModifierChannels hot,
             long newFinal,
             ref AttributeValueSlot value,
             DynamicBuffer<AttributeResolvedEventDraft> drafts)
@@ -178,9 +171,9 @@ namespace RebornFrame.Spell
             long oldCurrent = value.CurrentBits;
             long newMax = newFinal < 0 ? 0 : newFinal;
             long candidate = oldCurrent;
-            if (definition.ScaleCurrentWithMax != 0 && oldMax > 0)
+            if (hot.ScaleCurrentWithMax != 0 && oldMax > 0)
             {
-                candidate = definition.ValueKind == AttributeValueKind.Fixed64
+                candidate = hot.ValueKind == AttributeValueKind.Fixed64
                     ? ScaleFixedCurrent(oldCurrent, newMax, oldMax)
                     : WideMath.MultiplyDivideRounded(oldCurrent, newMax, oldMax);
             }
@@ -192,18 +185,29 @@ namespace RebornFrame.Spell
                     : candidate;
             value.MaxBits = newMax;
             value.CurrentBits = newCurrent;
-            AddDraftIfChanged(drafts, definition, AttributeValueTarget.Max, oldMax, newMax);
+            AddDraftIfChanged(drafts, hot.Id, hot.ValueKind, AttributeValueTarget.Max, oldMax, newMax);
             AddDraftIfChanged(
                 drafts,
-                definition,
+                hot.Id,
+                hot.ValueKind,
                 AttributeValueTarget.Current,
                 oldCurrent,
                 newCurrent);
         }
 
+        /// <summary>
+        /// 新旧值不同时追加一条重算草稿。
+        /// </summary>
+        /// <param name="drafts">单位事件草稿。</param>
+        /// <param name="attributeId">属性标识。</param>
+        /// <param name="valueKind">值类型。</param>
+        /// <param name="target">写入位置。</param>
+        /// <param name="oldBits">写入前的原始值。</param>
+        /// <param name="newBits">写入后的原始值。</param>
         static void AddDraftIfChanged(
             DynamicBuffer<AttributeResolvedEventDraft> drafts,
-            in AttributeDefinition definition,
+            AttributeId attributeId,
+            AttributeValueKind valueKind,
             AttributeValueTarget target,
             long oldBits,
             long newBits)
@@ -217,8 +221,8 @@ namespace RebornFrame.Spell
             {
                 RequestId = 0,
                 Kind = AttributeResolvedEventKind.Recalculated,
-                AttributeId = definition.Id,
-                ValueKind = definition.ValueKind,
+                AttributeId = attributeId,
+                ValueKind = valueKind,
                 Target = target,
                 OldBits = oldBits,
                 NewBits = newBits,
@@ -287,8 +291,6 @@ namespace RebornFrame.Spell
                 SystemAPI.GetBufferLookup<AttributeValueSlot>();
             BufferLookup<AttributeResolvedEventDraft> drafts =
                 SystemAPI.GetBufferLookup<AttributeResolvedEventDraft>();
-            ComponentLookup<AttributeLayoutReference> layouts =
-                SystemAPI.GetComponentLookup<AttributeLayoutReference>(true);
             EntityStorageInfoLookup entities = SystemAPI.GetEntityStorageInfoLookup();
             bool parallel = mode == AttributeModifierResolveMode.Parallel;
             NativeArray<byte> unresolved = new NativeArray<byte>(
@@ -305,7 +307,6 @@ namespace RebornFrame.Spell
                         ref channels,
                         ref values,
                         ref drafts,
-                        ref layouts,
                         unresolved);
                 }
                 else
@@ -317,7 +318,6 @@ namespace RebornFrame.Spell
                         ref channels,
                         ref values,
                         ref drafts,
-                        ref layouts,
                         unresolved);
                 }
 
@@ -420,7 +420,6 @@ namespace RebornFrame.Spell
         /// <param name="channels">单位热记录。</param>
         /// <param name="values">单位属性值。</param>
         /// <param name="drafts">单位事件草稿。</param>
-        /// <param name="layouts">单位布局。</param>
         /// <param name="unresolved">与 <paramref name="count"/> 等长。写不回去的位置记为 1。</param>
         static void ResolveSerial(
             DynamicBuffer<AttributeModifierDirtyRef> dirty,
@@ -429,7 +428,6 @@ namespace RebornFrame.Spell
             ref BufferLookup<AttributeModifierChannels> channels,
             ref BufferLookup<AttributeValueSlot> values,
             ref BufferLookup<AttributeResolvedEventDraft> drafts,
-            ref ComponentLookup<AttributeLayoutReference> layouts,
             NativeArray<byte> unresolved)
         {
             for (int index = 0; index < count; index++)
@@ -441,8 +439,7 @@ namespace RebornFrame.Spell
                     ref entities,
                     ref channels,
                     ref values,
-                    ref drafts,
-                    ref layouts);
+                    ref drafts);
                 unresolved[index] = resolved ? (byte)0 : (byte)1;
             }
         }
@@ -456,7 +453,6 @@ namespace RebornFrame.Spell
         /// <param name="channels">单位热记录。</param>
         /// <param name="values">单位属性值。</param>
         /// <param name="drafts">单位事件草稿。</param>
-        /// <param name="layouts">单位布局。</param>
         /// <param name="unresolved">与 <paramref name="count"/> 等长。写不回去的位置记为 1。</param>
         static void ResolveParallel(
             DynamicBuffer<AttributeModifierDirtyRef> dirty,
@@ -465,7 +461,6 @@ namespace RebornFrame.Spell
             ref BufferLookup<AttributeModifierChannels> channels,
             ref BufferLookup<AttributeValueSlot> values,
             ref BufferLookup<AttributeResolvedEventDraft> drafts,
-            ref ComponentLookup<AttributeLayoutReference> layouts,
             NativeArray<byte> unresolved)
         {
             NativeArray<AttributeModifierDirtyRef> copy =
@@ -509,7 +504,6 @@ namespace RebornFrame.Spell
                     Channels = channels,
                     Values = values,
                     Drafts = drafts,
-                    Layouts = layouts,
                 }.Schedule(starts.Length, 1).Complete();
             }
             finally
@@ -610,9 +604,6 @@ namespace RebornFrame.Spell
             [NativeDisableParallelForRestriction]
             public BufferLookup<AttributeResolvedEventDraft> Drafts;
 
-            [ReadOnly]
-            public ComponentLookup<AttributeLayoutReference> Layouts;
-
             public void Execute(int rangeIndex)
             {
                 int start = Starts[rangeIndex];
@@ -627,8 +618,7 @@ namespace RebornFrame.Spell
                         ref Entities,
                         ref Channels,
                         ref Values,
-                        ref Drafts,
-                        ref Layouts);
+                        ref Drafts);
                     Unresolved[source] = resolved ? (byte)0 : (byte)1;
                 }
             }

@@ -3,8 +3,8 @@ using FixedMathSharp;
 namespace RebornFrame.Spell
 {
     /// <summary>
-    /// 用热记录里的通道当前值计算公式结果。不读取贡献缓冲。
-    /// 配置基础值、值类型和非负限制由调用方从布局传入。
+    /// 用热记录里的通道当前值计算公式结果。不读取贡献缓冲，也不读取布局。
+    /// 配置基础值由调用方从属性值传入。值类型和非负限制在热记录上。
     /// </summary>
     internal static class AttributeModifierMath
     {
@@ -12,19 +12,17 @@ namespace RebornFrame.Spell
         /// 计算基础值和最终值。
         /// </summary>
         /// <param name="channels">该槽位的通道热记录。</param>
-        /// <param name="baseBits">布局中的配置基础值。</param>
-        /// <param name="valueKind">值类型。</param>
-        /// <param name="nonNegative">为 true 时每个阶段的结果不得小于 0。</param>
+        /// <param name="baseBits">属性值上的配置基础值。</param>
         /// <param name="newBase">基础阶段结果。</param>
         /// <param name="newFinal">最终阶段结果。</param>
         internal static void Evaluate(
             in AttributeModifierChannels channels,
             long baseBits,
-            AttributeValueKind valueKind,
-            bool nonNegative,
             out long newBase,
             out long newFinal)
         {
+            AttributeValueKind valueKind = channels.ValueKind;
+            bool nonNegative = channels.NonNegative != 0;
             newBase = EvaluateStage(
                 AttributeModifierFlags.Has(channels.Flags, AttributeModifierFlags.HasBaseOverride),
                 channels.BaseOverride,

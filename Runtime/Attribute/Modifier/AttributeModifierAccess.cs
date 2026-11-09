@@ -74,6 +74,7 @@ namespace RebornFrame.Spell
         /// <summary>
         /// 给单位挂上通道热记录、重载堆位置、贡献和重载堆。
         /// 热记录和堆位置与布局等长，下标就是槽位。
+        /// 属性 ID、值类型、行为、非负限制和资源缩放在这里从布局写入一次。
         /// </summary>
         /// <param name="entityManager">单位所在 World 的实体管理器。</param>
         /// <param name="entity">待挂载的单位。</param>
@@ -85,16 +86,33 @@ namespace RebornFrame.Spell
         {
             entityManager.AddBuffer<AttributeModifierContribution>(entity);
             entityManager.AddBuffer<AttributeModifierHeapNode>(entity);
-            DynamicBuffer<AttributeModifierChannels> channels =
-                entityManager.AddBuffer<AttributeModifierChannels>(entity);
-            DynamicBuffer<AttributeModifierOverrideRange> ranges =
-                entityManager.AddBuffer<AttributeModifierOverrideRange>(entity);
+            entityManager.AddBuffer<AttributeModifierChannels>(entity);
+            entityManager.AddBuffer<AttributeModifierOverrideRange>(entity);
+
+            // AddBuffer 是结构变化，会废掉此前取出的 DynamicBuffer。填充必须在全部挂载之后重新取。
             int length = layout.Value.Entries.Length;
+            DynamicBuffer<AttributeModifierChannels> channels =
+                entityManager.GetBuffer<AttributeModifierChannels>(entity);
             channels.EnsureCapacity(length);
+            for (int slot = 0; slot < length; slot++)
+            {
+                ref AttributeLayoutEntry entry = ref layout.Value.Entries[slot];
+                AttributeDefinition definition = entry.Definition;
+                channels.Add(new AttributeModifierChannels
+                {
+                    Id = definition.Id,
+                    ValueKind = definition.ValueKind,
+                    Behavior = definition.Behavior,
+                    NonNegative = definition.NonNegative,
+                    ScaleCurrentWithMax = definition.ScaleCurrentWithMax,
+                });
+            }
+
+            DynamicBuffer<AttributeModifierOverrideRange> ranges =
+                entityManager.GetBuffer<AttributeModifierOverrideRange>(entity);
             ranges.EnsureCapacity(length);
             for (int slot = 0; slot < length; slot++)
             {
-                channels.Add(default);
                 ranges.Add(default);
             }
         }

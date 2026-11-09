@@ -237,14 +237,32 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        /// 按合同顺序推进一个逻辑 tick：先 Buff，再属性。
+        /// 按合同顺序推进一个逻辑 tick：先 Buff，再属性。修改器结算使用主线程。
         /// </summary>
         /// <param name="logicTick">当前逻辑 tick，必须大于等于 0。</param>
         /// <exception cref="InvalidOperationException">尚未启动或已经释放。</exception>
         public void Tick(int logicTick)
         {
+            Tick(logicTick, false);
+        }
+
+        /// <summary>
+        /// 按合同顺序推进一个逻辑 tick：先 Buff，再属性。
+        /// 并行只作用于这一次的修改器结算，调用结束后移除，不留给下一次。
+        /// </summary>
+        /// <param name="logicTick">当前逻辑 tick，必须大于等于 0。</param>
+        /// <param name="parallelModifierResolve">为 true 时修改器按单位并行结算。</param>
+        /// <exception cref="InvalidOperationException">尚未启动或已经释放。</exception>
+        public void Tick(int logicTick, bool parallelModifierResolve)
+        {
             ThrowIfNotStarted();
             _buffPipeline.UpdateOnce(logicTick);
+            if (parallelModifierResolve)
+            {
+                _attributePipeline.UpdateOnce(AttributeModifierResolveMode.Parallel);
+                return;
+            }
+
             _attributePipeline.UpdateOnce();
         }
 

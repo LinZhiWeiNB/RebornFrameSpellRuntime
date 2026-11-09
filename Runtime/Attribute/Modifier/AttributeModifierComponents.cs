@@ -4,7 +4,8 @@ namespace RebornFrame.Spell
 {
     /// <summary>
     /// 一个属性的通道热记录。缓冲与单位布局等长，下标就是槽位。
-    /// 设置和删除时维护合计与堆顶，结算直接读取。
+    /// 挂载时写入属性 ID、值类型、行为、非负限制和资源缩放。
+    /// 设置和删除时维护合计与堆顶。结算只读这一格，不再查找布局。
     /// </summary>
     [InternalBufferCapacity(8)]
     internal struct AttributeModifierChannels : IBufferElementData
@@ -30,10 +31,25 @@ namespace RebornFrame.Spell
         /// <summary>最终重载堆顶。</summary>
         public long FinalOverride;
 
+        /// <summary>属性标识。挂载时从布局写入，供结算草稿使用。</summary>
+        public AttributeId Id;
+
         /// <summary>
         /// <see cref="AttributeModifierFlags"/> 的组合。含三个重载非空位和脏位。
         /// </summary>
         public byte Flags;
+
+        /// <summary>值类型。挂载时从布局写入。</summary>
+        public AttributeValueKind ValueKind;
+
+        /// <summary>行为分类。挂载时从布局写入。</summary>
+        public AttributeBehavior Behavior;
+
+        /// <summary>非零时公式结果不得小于 0。挂载时从布局写入。</summary>
+        public byte NonNegative;
+
+        /// <summary>非零时，资源 Max 变化会按比例调整 Current。挂载时从布局写入。</summary>
+        public byte ScaleCurrentWithMax;
     }
 
     /// <summary>热记录 <see cref="AttributeModifierChannels.Flags"/> 的位。</summary>

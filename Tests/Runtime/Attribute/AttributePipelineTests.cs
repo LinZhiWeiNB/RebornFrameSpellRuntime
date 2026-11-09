@@ -1573,7 +1573,7 @@ namespace RebornFrame.Spell.Tests
         }
 
         /// <summary>
-        /// 布局暂时对不上时保留脏位和脏引用。布局恢复后，下一次批次仍能结算。
+        /// 属性值缓冲暂时对不上时保留脏位和脏引用。缓冲恢复后，下一次批次仍能结算。
         /// 失败的一次走按单位并行，恢复后的一次走主线程。
         /// </summary>
         [Test]
@@ -1581,25 +1581,21 @@ namespace RebornFrame.Spell.Tests
         {
             Entity parallelUnit = CreateCapturedUnit();
             SetExtra(_unit, AttackId, 11, 5);
-            BlobAssetReference<AttributeLayoutBlob> layout =
-                _entityManager.GetComponentData<AttributeLayoutReference>(_unit).Value;
-            _entityManager.RemoveComponent<AttributeLayoutReference>(_unit);
+            AttributeValueSlot[] unitValues = TakeValueSlots(_unit);
 
             _pipeline.UpdateOnce();
 
             AttributeModifierResolveBatchCount afterSerial = ReadBatchCount();
             Assert.AreEqual(1, afterSerial.Serial);
             Assert.AreEqual(0, afterSerial.Parallel);
-            Assert.AreEqual(10, ReadSnapshot(_unit, AttackId).CurrentBits);
             AssertDirtyKept(_unit);
             Assert.AreEqual(1, DirtyCount());
             Assert.AreEqual(_unit, ReadDirty(0).Unit);
 
-            _entityManager.AddComponentData(
-                _unit,
-                new AttributeLayoutReference { Value = layout });
+            RestoreValueSlots(_unit, unitValues);
+            Assert.AreEqual(10, ReadSnapshot(_unit, AttackId).CurrentBits);
             SetExtra(parallelUnit, AttackId, 12, 5);
-            _entityManager.RemoveComponent<AttributeLayoutReference>(parallelUnit);
+            AttributeValueSlot[] parallelValues = TakeValueSlots(parallelUnit);
             _pipeline.UpdateOnce(AttributeModifierResolveMode.Parallel);
 
             AttributeModifierResolveBatchCount afterParallel = ReadBatchCount();
@@ -1608,14 +1604,12 @@ namespace RebornFrame.Spell.Tests
             AssertNoResolveOverride();
             Assert.AreEqual(15, ReadSnapshot(_unit, AttackId).CurrentBits);
             AssertDirtyCleared(_unit);
-            Assert.AreEqual(10, ReadSnapshot(parallelUnit, AttackId).CurrentBits);
             AssertDirtyKept(parallelUnit);
             Assert.AreEqual(1, DirtyCount());
             Assert.AreEqual(parallelUnit, ReadDirty(0).Unit);
 
-            _entityManager.AddComponentData(
-                parallelUnit,
-                new AttributeLayoutReference { Value = layout });
+            RestoreValueSlots(parallelUnit, parallelValues);
+            Assert.AreEqual(10, ReadSnapshot(parallelUnit, AttackId).CurrentBits);
             _pipeline.UpdateOnce();
 
             AttributeModifierResolveBatchCount afterRestore = ReadBatchCount();
@@ -1624,6 +1618,37 @@ namespace RebornFrame.Spell.Tests
             Assert.AreEqual(15, ReadSnapshot(parallelUnit, AttackId).CurrentBits);
             AssertDirtyCleared(parallelUnit);
             Assert.AreEqual(0, DirtyCount());
+        }
+
+        /// <summary>
+        /// 布局摘掉后，已经写入的热记录仍能结算。
+        /// </summary>
+        [Test]
+        public void Resolve_WithoutLayout_UsesHotRecord()
+        {
+            SetExtra(_unit, AttackId, 21, 5);
+            _entityManager.RemoveComponent<AttributeLayoutReference>(_unit);
+
+            _pipeline.UpdateOnce();
+
+            AssertDirtyCleared(_unit);
+            Assert.AreEqual(0, DirtyCount());
+            DynamicBuffer<AttributeModifierChannels> channels =
+                _entityManager.GetBuffer<AttributeModifierChannels>(_unit, true);
+            DynamicBuffer<AttributeValueSlot> values =
+                _entityManager.GetBuffer<AttributeValueSlot>(_unit, true);
+            int slot = -1;
+            for (int index = 0; index < channels.Length; index++)
+            {
+                if (channels[index].Id == AttackId)
+                {
+                    slot = index;
+                    break;
+                }
+            }
+
+            Assert.GreaterOrEqual(slot, 0);
+            Assert.AreEqual(15, values[slot].CurrentBits);
         }
 
         /// <summary>
@@ -1933,6 +1958,40 @@ namespace RebornFrame.Spell.Tests
             return _entityManager.GetBuffer<AttributeModifierDirtyRef>(
                 query.GetSingletonEntity(),
                 true)[index];
+        }
+
+        /// <summary>
+        /// 摘掉单位的属性值缓冲，并返回摘掉前的内容。
+        /// </summary>
+        /// <param name="entity">目标单位。</param>
+        /// <returns>摘掉前的属性值。</returns>
+        AttributeValueSlot[] TakeValueSlots(Entity entity)
+        {
+            DynamicBuffer<AttributeValueSlot> values =
+                _entityManager.GetBuffer<AttributeValueSlot>(entity);
+            var copy = new AttributeValueSlot[values.Length];
+            for (int index = 0; index < values.Length; index++)
+            {
+                copy[index] = values[index];
+            }
+
+            _entityManager.RemoveComponent<AttributeValueSlot>(entity);
+            return copy;
+        }
+
+        /// <summary>
+        /// 把摘掉的属性值缓冲按原顺序挂回单位。
+        /// </summary>
+        /// <param name="entity">目标单位。</param>
+        /// <param name="slots">摘掉前的属性值。</param>
+        void RestoreValueSlots(Entity entity, AttributeValueSlot[] slots)
+        {
+            DynamicBuffer<AttributeValueSlot> values =
+                _entityManager.AddBuffer<AttributeValueSlot>(entity);
+            for (int index = 0; index < slots.Length; index++)
+            {
+                values.Add(slots[index]);
+            }
         }
 
         /// <summary>确认单位上仍有脏标记。写不回去时脏位必须保持为 1。</summary>
