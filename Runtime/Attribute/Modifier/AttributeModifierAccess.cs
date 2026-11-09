@@ -53,7 +53,6 @@ namespace RebornFrame.Spell
             entityManager.AddComponent<AttributeModifierWorkspace>(workspace);
             entityManager.AddBuffer<AttributeModifierDirtyRef>(workspace);
             entityManager.AddBuffer<AttributeModifierCalcInput>(workspace);
-            entityManager.AddBuffer<AttributeModifierCalcResult>(workspace);
             return workspace;
         }
 

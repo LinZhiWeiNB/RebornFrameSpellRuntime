@@ -137,7 +137,7 @@ namespace RebornFrame.Spell
         public int Slot;
     }
 
-    /// <summary>封存后的热计算输入。计算作业只读这一段连续数据。</summary>
+    /// <summary>封存后的热计算输入。计算按这段连续数据逐条读取并写回。</summary>
     [InternalBufferCapacity(0)]
     internal struct AttributeModifierCalcInput : IBufferElementData
     {
@@ -209,37 +209,5 @@ namespace RebornFrame.Spell
 
         /// <summary>非零时资源 Current 随 Max 缩放。</summary>
         public byte ScaleCurrentWithMax;
-    }
-
-    /// <summary>热计算的公式结果。赋值作业据此写回属性。</summary>
-    [InternalBufferCapacity(0)]
-    internal struct AttributeModifierCalcResult : IBufferElementData
-    {
-        /// <summary>写回目标单位。</summary>
-        public Entity Unit;
-
-        /// <summary>属性槽位。</summary>
-        public int Slot;
-
-        /// <summary>属性标识。</summary>
-        public AttributeId AttributeId;
-
-        /// <summary>单位稳定 ID。</summary>
-        public ulong StableId;
-
-        /// <summary>行为分类。</summary>
-        public AttributeBehavior Behavior;
-
-        /// <summary>值类型。</summary>
-        public AttributeValueKind ValueKind;
-
-        /// <summary>非零时资源 Current 随 Max 缩放。</summary>
-        public byte ScaleCurrentWithMax;
-
-        /// <summary>基础阶段结果。</summary>
-        public long NewBase;
-
-        /// <summary>最终阶段结果。资源解释为 Max，数值和标记解释为 Current。</summary>
-        public long NewFinal;
     }
 }
