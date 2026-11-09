@@ -99,7 +99,7 @@ BuffAccess.TryIterate(entityManager, new BuffClockKey(roundClock, unitStableId),
 
 ## 批次顺序
 
-一次 `UpdateOnce(logicTick)` 按以下顺序执行：
+`SpellStartup.Tick` 先执行第 1–5 步，再结算属性，然后执行第 6–10 步。直接调用 `UpdateOnce(logicTick)` 时，这 10 步仍连续执行。
 
 1. 收集单位。缺失、重复或为零的稳定 Id 直接失败。
 2. 收集并处理创建、叠层、刷新和互斥替换，然后分发这个阶段排出的效果。

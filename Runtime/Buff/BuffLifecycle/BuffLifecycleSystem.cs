@@ -21,8 +21,9 @@ namespace RebornFrame.Spell
     }
 
     /// <summary>
-    /// 分批抽走 Pending 并改 Buff 结构。顺序是创建、信号、步进、信号、销毁、信号。
-    /// 每个结构阶段后立即分发该阶段排出的效果。热路径只复用本系统持有的 NativeList。
+    /// 分批抽走 Pending 并改 Buff 结构。前半段是创建、信号、步进、信号。
+    /// 销毁和最后一轮信号在属性结算之后执行。每个结构阶段后立即分发该阶段排出的效果。
+    /// 热路径只复用本系统持有的 NativeList。
     /// </summary>
     [DisableAutoCreation]
     [UpdateInGroup(typeof(BuffPipelineSystemGroup), OrderFirst = true)]
@@ -64,31 +65,16 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        /// 按创建、信号、步进、信号、销毁、信号处理本 tick。每个阶段只抽走当时的 Pending，并立刻分发效果。
+        /// 处理创建、信号、步进，以及步进之后的信号。销毁留到属性结算之后。
         /// </summary>
         /// <param name="state">系统状态。</param>
         public void OnUpdate(ref SystemState state)
         {
-            EntityManager entityManager = state.EntityManager;
-            using EntityQuery catalogQuery =
-                entityManager.CreateEntityQuery(ComponentType.ReadOnly<BuffCatalogReference>());
-            if (catalogQuery.CalculateEntityCount() != 1)
+            if (!TryPrepare(ref state, out EntityManager entityManager, out Entity singleton,
+                    out BlobAssetReference<BuffCatalogBlob> catalog,
+                    out BlobAssetReference<TagCatalogBlob> tags))
             {
                 return;
-            }
-
-            Entity singleton = catalogQuery.GetSingletonEntity();
-            // 上一 tick 的效果下标已经失效，分发队列只保留本 tick 新入队的效果。
-            BuffEffectDispatchRoutes.ClearQueues(state.World);
-            CollectUnits(entityManager);
-            BlobAssetReference<BuffCatalogBlob> catalog =
-                entityManager.GetComponentData<BuffCatalogReference>(singleton).Value;
-            BlobAssetReference<TagCatalogBlob> tags = default;
-            using EntityQuery tagQuery =
-                entityManager.CreateEntityQuery(ComponentType.ReadOnly<TagCatalogReference>());
-            if (tagQuery.CalculateEntityCount() == 1)
-            {
-                tags = tagQuery.GetSingleton<TagCatalogReference>().Value;
             }
 
             int logicTick = entityManager.GetComponentData<BuffSimulationState>(singleton).LogicTick;
@@ -109,6 +95,20 @@ namespace RebornFrame.Spell
             DrainSignals(entityManager, singleton);
             ProcessSignals(entityManager, singleton, catalog, tags);
             DispatchEffects(ref state);
+        }
+
+        /// <summary>
+        /// 属性结算完成后处理销毁和最后一轮信号。
+        /// </summary>
+        /// <param name="state">系统状态。</param>
+        public void OnCompleteAfterAttributes(ref SystemState state)
+        {
+            if (!TryPrepare(ref state, out EntityManager entityManager, out Entity singleton,
+                    out BlobAssetReference<BuffCatalogBlob> catalog,
+                    out BlobAssetReference<TagCatalogBlob> tags))
+            {
+                return;
+            }
 
             DrainDestroys(entityManager, singleton);
             ProcessDestroys(entityManager, singleton, catalog);
@@ -117,6 +117,49 @@ namespace RebornFrame.Spell
             DrainSignals(entityManager, singleton);
             ProcessSignals(entityManager, singleton, catalog, tags);
             DispatchEffects(ref state);
+        }
+
+        /// <summary>
+        /// 收集本 tick 的单位、目录和 Tag。没有唯一 Buff 目录时返回 false。
+        /// </summary>
+        /// <param name="state">系统状态。</param>
+        /// <param name="entityManager">当前 World 的实体管理器。</param>
+        /// <param name="singleton">Buff 目录实体。</param>
+        /// <param name="catalog">冻结的 Buff 目录。</param>
+        /// <param name="tags">冻结的 Tag 目录。不存在时为默认值。</param>
+        /// <returns>准备成功时为 true。</returns>
+        bool TryPrepare(
+            ref SystemState state,
+            out EntityManager entityManager,
+            out Entity singleton,
+            out BlobAssetReference<BuffCatalogBlob> catalog,
+            out BlobAssetReference<TagCatalogBlob> tags)
+        {
+            entityManager = state.EntityManager;
+            using EntityQuery catalogQuery =
+                entityManager.CreateEntityQuery(ComponentType.ReadOnly<BuffCatalogReference>());
+            if (catalogQuery.CalculateEntityCount() != 1)
+            {
+                singleton = Entity.Null;
+                catalog = default;
+                tags = default;
+                return false;
+            }
+
+            singleton = catalogQuery.GetSingletonEntity();
+            // 上一阶段的效果下标已经失效，分发队列只保留这次新入队的效果。
+            BuffEffectDispatchRoutes.ClearQueues(state.World);
+            CollectUnits(entityManager);
+            catalog = entityManager.GetComponentData<BuffCatalogReference>(singleton).Value;
+            tags = default;
+            using EntityQuery tagQuery =
+                entityManager.CreateEntityQuery(ComponentType.ReadOnly<TagCatalogReference>());
+            if (tagQuery.CalculateEntityCount() == 1)
+            {
+                tags = tagQuery.GetSingleton<TagCatalogReference>().Value;
+            }
+
+            return true;
         }
 
         /// <summary>
