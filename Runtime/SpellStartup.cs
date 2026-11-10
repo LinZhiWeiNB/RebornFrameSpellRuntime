@@ -237,15 +237,16 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        /// 按合同顺序推进一个逻辑 tick：先 Buff，再属性。
+        /// 推进一个逻辑 tick：先处理 Buff 的创建、信号和步进，再结算属性，最后处理 Buff 销毁、清理和清空。
         /// </summary>
         /// <param name="logicTick">当前逻辑 tick，必须大于等于 0。</param>
         /// <exception cref="InvalidOperationException">尚未启动或已经释放。</exception>
         public void Tick(int logicTick)
         {
             ThrowIfNotStarted();
-            _buffPipeline.UpdateOnce(logicTick);
+            _buffPipeline.BeginUpdate(logicTick);
             _attributePipeline.UpdateOnce();
+            _buffPipeline.CompleteAfterAttributes();
         }
 
         /// <summary>

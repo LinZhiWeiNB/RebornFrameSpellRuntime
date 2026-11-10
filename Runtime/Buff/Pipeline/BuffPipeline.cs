@@ -77,13 +77,27 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        /// 执行一次 Buff 批次。logicTick 只用于标记新实例，不自动减少剩余步数。
+        /// 执行一次完整 Buff 批次。logicTick 只用于标记新实例，不自动减少剩余步数。
+        /// 需要把销毁插到属性结算之后时，改用 <see cref="BeginUpdate"/> 和 <see cref="CompleteAfterAttributes"/>。
         /// </summary>
         /// <param name="logicTick">当前逻辑 tick，必须大于等于 0。</param>
         /// <exception cref="ObjectDisposedException">流水线或其 World 已被释放。</exception>
         /// <exception cref="ArgumentOutOfRangeException">逻辑 tick 小于 0。</exception>
         /// <exception cref="InvalidOperationException">流水线重入，或 World 没有 Buff 目录。</exception>
         public void UpdateOnce(int logicTick)
+        {
+            BeginUpdate(logicTick);
+            CompleteAfterAttributes();
+        }
+
+        /// <summary>
+        /// 开始一次 Buff 批次，只处理创建、信号和步进。销毁、清理和清空留到属性结算之后。
+        /// </summary>
+        /// <param name="logicTick">当前逻辑 tick，必须大于等于 0。</param>
+        /// <exception cref="ObjectDisposedException">流水线或其 World 已被释放。</exception>
+        /// <exception cref="ArgumentOutOfRangeException">逻辑 tick 小于 0。</exception>
+        /// <exception cref="InvalidOperationException">流水线重入，或 World 没有 Buff 目录。</exception>
+        public void BeginUpdate(int logicTick)
         {
             if (_disposed || !_world.IsCreated)
             {
@@ -96,14 +110,7 @@ namespace RebornFrame.Spell
             }
 
             EntityManager entityManager = _world.EntityManager;
-            using EntityQuery query =
-                entityManager.CreateEntityQuery(ComponentType.ReadOnly<BuffSimulationState>());
-            if (query.CalculateEntityCount() != 1)
-            {
-                throw new InvalidOperationException("当前 World 没有 Buff 目录。");
-            }
-
-            Entity singleton = query.GetSingletonEntity();
+            Entity singleton = GetSingleton(entityManager);
             BuffSimulationState state = entityManager.GetComponentData<BuffSimulationState>(singleton);
             if (state.Running != 0)
             {
@@ -117,20 +124,70 @@ namespace RebornFrame.Spell
             try
             {
                 Run<BuffLifecycleSystem>(_lifecycleSystem);
+            }
+            catch
+            {
+                ClearRunning(entityManager, singleton);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// 属性结算完成后，处理销毁、最后一轮信号，再清理墓碑并清空本 tick 缓冲。
+        /// </summary>
+        /// <exception cref="ObjectDisposedException">流水线或其 World 已被释放。</exception>
+        /// <exception cref="InvalidOperationException">尚未调用 <see cref="BeginUpdate"/>。</exception>
+        public void CompleteAfterAttributes()
+        {
+            if (_disposed || !_world.IsCreated)
+            {
+                throw new ObjectDisposedException(nameof(BuffPipeline));
+            }
+
+            EntityManager entityManager = _world.EntityManager;
+            Entity singleton = Entity.Null;
+            try
+            {
+                singleton = GetSingleton(entityManager);
+                BuffSimulationState state = entityManager.GetComponentData<BuffSimulationState>(singleton);
+                if (state.Running == 0)
+                {
+                    throw new InvalidOperationException("Buff 前半段尚未开始。");
+                }
+
+                RunComplete(_lifecycleSystem);
                 Run<BuffCleanupSystem>(_cleanupSystem);
                 _eventGroup.Update();
                 Run<BuffClearSystem>(_clearSystem);
             }
             finally
             {
-                if (entityManager.Exists(singleton))
-                {
-                    BuffSimulationState completed =
-                        entityManager.GetComponentData<BuffSimulationState>(singleton);
-                    completed.Running = 0;
-                    entityManager.SetComponentData(singleton, completed);
-                }
+                ClearRunning(entityManager, singleton);
             }
+        }
+
+        static Entity GetSingleton(EntityManager entityManager)
+        {
+            using EntityQuery query =
+                entityManager.CreateEntityQuery(ComponentType.ReadOnly<BuffSimulationState>());
+            if (query.CalculateEntityCount() != 1)
+            {
+                throw new InvalidOperationException("当前 World 没有 Buff 目录。");
+            }
+
+            return query.GetSingletonEntity();
+        }
+
+        static void ClearRunning(EntityManager entityManager, Entity singleton)
+        {
+            if (!entityManager.Exists(singleton))
+            {
+                return;
+            }
+
+            BuffSimulationState completed = entityManager.GetComponentData<BuffSimulationState>(singleton);
+            completed.Running = 0;
+            entityManager.SetComponentData(singleton, completed);
         }
 
         /// <summary>
@@ -167,6 +224,14 @@ namespace RebornFrame.Spell
             ref T system = ref _world.Unmanaged.GetUnsafeSystemRef<T>(handle);
             ref SystemState state = ref _world.Unmanaged.ResolveSystemStateRef(handle);
             system.OnUpdate(ref state);
+        }
+
+        void RunComplete(SystemHandle handle)
+        {
+            ref BuffLifecycleSystem system =
+                ref _world.Unmanaged.GetUnsafeSystemRef<BuffLifecycleSystem>(handle);
+            ref SystemState state = ref _world.Unmanaged.ResolveSystemStateRef(handle);
+            system.OnCompleteAfterAttributes(ref state);
         }
 
         static bool HasPipelineSystems(World world)
