@@ -151,12 +151,10 @@ namespace RebornFrame.Spell
             ValidateCurrentOverrides(layout, currentOverrides);
 
             entityManager.AddComponentData(entity, new AttributeLayoutReference { Value = layout });
-            entityManager.AddComponentData(entity, new AttributeRequestEventSequence());
             AttributeModifierAccess.AttachToUnit(entityManager, entity, layout);
+            AttributeCurrentValueAccess.AttachToUnit(entityManager, entity);
             entityManager.AddBuffer<AttributeValueSlot>(entity);
             entityManager.AddBuffer<AttributeResolvedEventDraft>(entity);
-            entityManager.AddBuffer<PendingAttributeCurrentValueRequest>(entity);
-            entityManager.AddBuffer<AttributeCurrentValueRequest>(entity);
             entityManager.AddBuffer<PendingAttributeRequestTag>(entity);
             entityManager.AddBuffer<AttributeRequestTag>(entity);
             entityManager.AddBuffer<AttributeResolvedEvent>(entity);
@@ -332,12 +330,12 @@ namespace RebornFrame.Spell
             AttributeId attributeId,
             long deltaBits)
         {
-            return TryRequestCurrentValueChange(
+            return AttributeCurrentValueAccess.TryRequest(
                 entityManager,
                 entity,
                 attributeId,
                 deltaBits,
-                default(NativeArray<TagId>));
+                default);
         }
 
         /// <summary>
@@ -358,7 +356,7 @@ namespace RebornFrame.Spell
         {
             NativeArray<TagId> tags = new NativeArray<TagId>(1, Allocator.Temp);
             tags[0] = tag;
-            bool queued = TryRequestCurrentValueChange(
+            bool queued = AttributeCurrentValueAccess.TryRequest(
                 entityManager,
                 entity,
                 attributeId,
@@ -384,59 +382,12 @@ namespace RebornFrame.Spell
             long deltaBits,
             NativeArray<TagId> tags)
         {
-            if (!TryResolve(
-                    entityManager,
-                    entity,
-                    attributeId,
-                    out AttributeLayoutReference layout,
-                    out int slot)
-                || !entityManager.HasBuffer<PendingAttributeCurrentValueRequest>(entity)
-                || !entityManager.HasBuffer<PendingAttributeRequestTag>(entity)
-                || !entityManager.HasComponent<AttributeRequestEventSequence>(entity)
-                || !AreTagsRegistered(entityManager, tags))
-            {
-                return false;
-            }
-
-            AttributeDefinition definition = layout.Value.Value.Entries[slot].Definition;
-            if (definition.Behavior != AttributeBehavior.Resource
-                || !WideMath.IsRawValueValid(definition.ValueKind, deltaBits))
-            {
-                return false;
-            }
-
-            DynamicBuffer<PendingAttributeCurrentValueRequest> requests =
-                entityManager.GetBuffer<PendingAttributeCurrentValueRequest>(entity);
-            AttributeRequestEventSequence sequence =
-                entityManager.GetComponentData<AttributeRequestEventSequence>(entity);
-            ulong requestId = sequence.AllocateRequestId();
-            entityManager.SetComponentData(entity, sequence);
-            requests.Add(new PendingAttributeCurrentValueRequest
-            {
-                Value = new AttributeCurrentValueRequest(
-                    requestId,
-                    attributeId,
-                    slot,
-                    deltaBits),
-            });
-
-            if (!tags.IsCreated)
-            {
-                return true;
-            }
-
-            DynamicBuffer<PendingAttributeRequestTag> requestTags =
-                entityManager.GetBuffer<PendingAttributeRequestTag>(entity);
-            for (int index = 0; index < tags.Length; index++)
-            {
-                AttributeRequestTags.TryAddPending(
-                    requestTags,
-                    requestId,
-                    AttributeRequestTagSet.Reason,
-                    tags[index]);
-            }
-
-            return true;
+            return AttributeCurrentValueAccess.TryRequest(
+                entityManager,
+                entity,
+                attributeId,
+                deltaBits,
+                tags);
         }
 
         internal static bool TryResolve(
@@ -502,7 +453,7 @@ namespace RebornFrame.Spell
             }
         }
 
-        static bool AreTagsRegistered(
+        internal static bool AreTagsRegistered(
             EntityManager entityManager,
             NativeArray<TagId> tags)
         {
