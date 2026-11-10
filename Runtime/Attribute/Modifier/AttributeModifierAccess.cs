@@ -15,7 +15,7 @@ namespace RebornFrame.Spell
         static Entity _workspaceEntity;
 
         /// <summary>
-        /// 确保 World 里存在修改器工作区。封存和计算都从这里读取脏列表。
+        /// 确保 World 里存在修改器工作区。结算从这里读取脏列表。
         /// 同一 World 在工作区仍然存在时直接复用，避免每次标脏都创建查询。
         /// </summary>
         /// <param name="entityManager">目标 World 的实体管理器。</param>
@@ -52,7 +52,6 @@ namespace RebornFrame.Spell
             Entity workspace = entityManager.CreateEntity();
             entityManager.AddComponent<AttributeModifierWorkspace>(workspace);
             entityManager.AddBuffer<AttributeModifierDirtyRef>(workspace);
-            entityManager.AddBuffer<AttributeModifierCalcInput>(workspace);
             return workspace;
         }
 

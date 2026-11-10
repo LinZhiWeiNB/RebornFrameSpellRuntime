@@ -18,7 +18,6 @@ namespace RebornFrame.Spell
         readonly AttributeRequestListenerSystemGroup _requestListenerGroup;
         readonly AttributeEventConsumerSystemGroup _eventConsumerGroup;
         readonly SystemHandle _inputSealSystem;
-        readonly SystemHandle _modifierSealSystem;
         readonly SystemHandle _modifierCalcSystem;
         readonly SystemHandle _currentValueApplySystem;
         readonly SystemHandle _eventPublishSystem;
@@ -40,8 +39,6 @@ namespace RebornFrame.Spell
 
             AttributeModifierAccess.EnsureWorkspace(world.EntityManager);
             _inputSealSystem = world.GetOrCreateSystem<AttributeInputSealSystem>();
-            _modifierSealSystem =
-                world.GetOrCreateSystem<AttributeModifierSealSystem>();
             _modifierCalcSystem =
                 world.GetOrCreateSystem<AttributeModifierCalcSystem>();
             _currentValueApplySystem =
@@ -96,7 +93,7 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        /// 执行一次完整属性批次：封存输入、计算并写回修改器、处理资源请求、发布事件并消费。
+        /// 执行一次完整属性批次：封存资源请求、沿脏列表计算并写回修改器、处理资源请求、发布事件并消费。
         /// </summary>
         /// <remarks>
         /// 必须由上层帧同步在主线程、非重入地调用。批次执行期间不得 Disabled、
@@ -135,7 +132,6 @@ namespace RebornFrame.Spell
             _world.DestroySystem(_eventPublishSystem);
             _world.DestroySystem(_currentValueApplySystem);
             _world.DestroySystem(_modifierCalcSystem);
-            _world.DestroySystem(_modifierSealSystem);
             _world.DestroySystem(_inputSealSystem);
         }
 
@@ -146,7 +142,6 @@ namespace RebornFrame.Spell
                 || world.GetExistingSystemManaged<AttributeRequestListenerSystemGroup>() != null
                 || world.GetExistingSystemManaged<AttributeEventConsumerSystemGroup>() != null
                 || world.GetExistingSystem<AttributeInputSealSystem>() != default
-                || world.GetExistingSystem<AttributeModifierSealSystem>() != default
                 || world.GetExistingSystem<AttributeModifierCalcSystem>() != default
                 || world.GetExistingSystem<AttributeCurrentValueApplySystem>() != default
                 || world.GetExistingSystem<AttributeEventPublishSystem>() != default

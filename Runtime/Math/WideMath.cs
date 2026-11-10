@@ -64,32 +64,6 @@ namespace RebornFrame.Spell
             }
 
             /// <summary>
-            /// 导出 128 位补码的高低字，供热快照保存。
-            /// </summary>
-            /// <param name="high">高 64 位。</param>
-            /// <param name="low">低 64 位。</param>
-            internal void GetParts(out long high, out ulong low)
-            {
-                high = _high;
-                low = _low;
-            }
-
-            /// <summary>
-            /// 用高低字恢复合计。
-            /// </summary>
-            /// <param name="high">高 64 位。</param>
-            /// <param name="low">低 64 位。</param>
-            /// <returns>恢复后的合计。</returns>
-            internal static SignedAccumulator FromParts(long high, ulong low)
-            {
-                return new SignedAccumulator
-                {
-                    _high = high,
-                    _low = low,
-                };
-            }
-
-            /// <summary>
             /// 在全部值合计后一次性饱和到 64 位，避免结果受缓冲物理顺序影响。
             /// </summary>
             /// <returns>饱和后的 64 位合计。</returns>

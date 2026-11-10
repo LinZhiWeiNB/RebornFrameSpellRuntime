@@ -126,7 +126,7 @@ namespace RebornFrame.Spell
     {
     }
 
-    /// <summary>本批待封存的脏修改器。</summary>
+    /// <summary>本批待重算的脏修改器。</summary>
     [InternalBufferCapacity(0)]
     internal struct AttributeModifierDirtyRef : IBufferElementData
     {
@@ -137,77 +137,4 @@ namespace RebornFrame.Spell
         public int Slot;
     }
 
-    /// <summary>封存后的热计算输入。计算按这段连续数据逐条读取并写回。</summary>
-    [InternalBufferCapacity(0)]
-    internal struct AttributeModifierCalcInput : IBufferElementData
-    {
-        /// <summary>写回目标单位。</summary>
-        public Entity Unit;
-
-        /// <summary>属性槽位。</summary>
-        public int Slot;
-
-        /// <summary>属性标识。</summary>
-        public AttributeId AttributeId;
-
-        /// <summary>单位稳定 ID。</summary>
-        public ulong StableId;
-
-        /// <summary>配置基础值。</summary>
-        public long BaseBits;
-
-        /// <summary>基础加值高字。</summary>
-        public long BaseAddHigh;
-
-        /// <summary>基础加值低字。</summary>
-        public ulong BaseAddLow;
-
-        /// <summary>基础百分比高字。</summary>
-        public long BasePercentHigh;
-
-        /// <summary>基础百分比低字。</summary>
-        public ulong BasePercentLow;
-
-        /// <summary>额外加值高字。</summary>
-        public long ExtraAddHigh;
-
-        /// <summary>额外加值低字。</summary>
-        public ulong ExtraAddLow;
-
-        /// <summary>额外百分比高字。</summary>
-        public long ExtraPercentHigh;
-
-        /// <summary>额外百分比低字。</summary>
-        public ulong ExtraPercentLow;
-
-        /// <summary>基础重载堆顶。</summary>
-        public long BaseOverrideBits;
-
-        /// <summary>额外重载堆顶。</summary>
-        public long ExtraOverrideBits;
-
-        /// <summary>最终重载堆顶。</summary>
-        public long FinalOverrideBits;
-
-        /// <summary>非零表示存在基础重载。</summary>
-        public byte HasBaseOverride;
-
-        /// <summary>非零表示存在额外重载。</summary>
-        public byte HasExtraOverride;
-
-        /// <summary>非零表示存在最终重载。</summary>
-        public byte HasFinalOverride;
-
-        /// <summary>非零时结果不得小于 0。</summary>
-        public byte NonNegative;
-
-        /// <summary>值类型。</summary>
-        public AttributeValueKind ValueKind;
-
-        /// <summary>行为分类。</summary>
-        public AttributeBehavior Behavior;
-
-        /// <summary>非零时资源 Current 随 Max 缩放。</summary>
-        public byte ScaleCurrentWithMax;
-    }
 }

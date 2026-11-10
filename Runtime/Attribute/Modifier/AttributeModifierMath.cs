@@ -3,43 +3,10 @@ using FixedMathSharp;
 namespace RebornFrame.Spell
 {
     /// <summary>
-    /// 用封存后的通道当前值计算公式结果。不读取贡献缓冲。
+    /// 用状态上的通道合计计算公式结果。不读取贡献缓冲。
     /// </summary>
     internal static class AttributeModifierMath
     {
-        /// <summary>
-        /// 计算基础值和最终值。
-        /// </summary>
-        /// <param name="input">热快照。</param>
-        /// <param name="newBase">基础阶段结果。</param>
-        /// <param name="newFinal">最终阶段结果。</param>
-        internal static void Evaluate(
-            in AttributeModifierCalcInput input,
-            out long newBase,
-            out long newFinal)
-        {
-            bool nonNegative = input.NonNegative != 0;
-            newBase = EvaluateStage(
-                input.HasBaseOverride != 0,
-                input.BaseOverrideBits,
-                input.BaseBits,
-                WideMath.SignedAccumulator.FromParts(input.BaseAddHigh, input.BaseAddLow),
-                WideMath.SignedAccumulator.FromParts(input.BasePercentHigh, input.BasePercentLow),
-                input.ValueKind,
-                nonNegative);
-            long extra = EvaluateStage(
-                input.HasExtraOverride != 0,
-                input.ExtraOverrideBits,
-                newBase,
-                WideMath.SignedAccumulator.FromParts(input.ExtraAddHigh, input.ExtraAddLow),
-                WideMath.SignedAccumulator.FromParts(input.ExtraPercentHigh, input.ExtraPercentLow),
-                input.ValueKind,
-                nonNegative);
-            newFinal = input.HasFinalOverride != 0
-                ? WideMath.Normalize(input.ValueKind, input.FinalOverrideBits, nonNegative)
-                : extra;
-        }
-
         /// <summary>
         /// 直接用状态上的通道合计计算公式。调用方保证本批计算期间这条状态不再被改写。
         /// </summary>
