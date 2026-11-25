@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Unity.Entities;
 
@@ -93,6 +94,9 @@ namespace RebornFrame.Spell
         /// <summary>持有者稳定 ID。</summary>
         public ulong OwnerStableId;
 
+        /// <summary>施法时的主目标。没有时为 0。</summary>
+        public ulong PrimaryTargetStableId;
+
         /// <summary>结果种类。</summary>
         public SpellResolvedEventKind Kind;
 
@@ -172,6 +176,25 @@ namespace RebornFrame.Spell
 
         /// <summary>法术定义标识。</summary>
         public SpellId Id;
+
+        /// <summary>按配置顺序播放的表现轨道。</summary>
+        public List<SpellPresentationTrackAuthoring> PresentationTracks = new();
+    }
+
+    /// <summary>构建目录时使用的一条表现轨道。</summary>
+    public sealed class SpellPresentationTrackAuthoring
+    {
+        /// <summary>持续帧数。0 表示跟着法术实例，直到实例结束。</summary>
+        public int DurationFrames;
+
+        /// <summary>轨道参数。空数组表示没有参数。</summary>
+        public byte[] Parameters = Array.Empty<byte>();
+
+        /// <summary>相对施法开始的延迟帧数。</summary>
+        public int StartFrame;
+
+        /// <summary>轨道种类。</summary>
+        public SpellPresentationTrackId TypeId;
     }
 
     /// <summary>内置拾取和后续玩法拾取都能看到的上下文。</summary>

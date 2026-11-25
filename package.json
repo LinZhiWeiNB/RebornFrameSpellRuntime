@@ -1,7 +1,7 @@
 {
   "name": "com.reborn.spell",
   "displayName": "技能模块",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "unity": "6000.0",
   "description": "RebornFrame 技能（Spell）模块，包含数据驱动且确定性的属性流水线。",
   "type": "library",

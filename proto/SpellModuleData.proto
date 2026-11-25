@@ -27,6 +27,16 @@ message SpellData {
   repeated SpellEventConfig events = 7;
   // trigger 为 0 表示没有结束事件。
   SpellEventConfig end_event = 8;
+  repeated SpellPresentationTrack presentation_tracks = 9;
+}
+
+// 一条表现轨道。参数字节由 type_id 对应的轨道包解析。
+message SpellPresentationTrack {
+  uint64 type_id = 1;
+  int32 start_frame = 2;
+  // 0 表示跟着法术实例，直到实例结束。
+  int32 duration_frames = 3;
+  bytes parameters = 4;
 }
 
 // 时间轴上的一条事件。触发后先看持有者条件，再拾取目标，然后提交 Buff。
