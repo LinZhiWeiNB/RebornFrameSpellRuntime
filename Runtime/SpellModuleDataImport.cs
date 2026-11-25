@@ -115,7 +115,8 @@ namespace RebornFrame.Spell
                 CooldownFrames = source.CooldownFrames,
                 Admission = (BuffTagQuery)source.Admission,
                 AdmissionTags = TagIds(source.AdmissionTags),
-                Events = SpellEvents(source.Events)
+                Events = SpellEvents(source.Events),
+                PresentationTracks = PresentationTracks(source.PresentationTracks)
             };
             if (source.EndEvent != null && source.EndEvent.Trigger != 0) definition.EndEvent = SpellEvent(source.EndEvent);
 
@@ -145,6 +146,27 @@ namespace RebornFrame.Spell
                 Pick = new SpellPickId(source.Pick),
                 Buffs = BuffIds(source.BuffIds)
             };
+        }
+
+        private static List<SpellPresentationTrackAuthoring> PresentationTracks(
+            RepeatedField<SpellPresentationTrack> source)
+        {
+            var tracks = new List<SpellPresentationTrackAuthoring>(source.Count);
+            for (var index = 0; index < source.Count; index++)
+            {
+                var track = source[index];
+                tracks.Add(new SpellPresentationTrackAuthoring
+                {
+                    TypeId = new SpellPresentationTrackId(track.TypeId),
+                    StartFrame = track.StartFrame,
+                    DurationFrames = track.DurationFrames,
+                    Parameters = track.Parameters.Length == 0
+                        ? Array.Empty<byte>()
+                        : track.Parameters.ToByteArray()
+                });
+            }
+
+            return tracks;
         }
 
         private static List<BuffId> BuffIds(RepeatedField<ulong> source)

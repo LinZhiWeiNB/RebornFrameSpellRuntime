@@ -83,6 +83,31 @@ namespace RebornFrame.Spell
 
         /// <summary>结束事件。没有结束事件时不使用。</summary>
         public SpellEventDefinition EndEvent;
+
+        /// <summary>表现轨道起点。</summary>
+        public int TrackStart;
+
+        /// <summary>表现轨道数量。</summary>
+        public int TrackCount;
+    }
+
+    /// <summary>冻结后的一条表现轨道。</summary>
+    public struct SpellPresentationTrackDefinition
+    {
+        /// <summary>轨道种类。</summary>
+        public SpellPresentationTrackId TypeId;
+
+        /// <summary>相对施法开始的延迟帧数。</summary>
+        public int StartFrame;
+
+        /// <summary>持续帧数。0 表示跟着法术实例。</summary>
+        public int DurationFrames;
+
+        /// <summary>参数字节起点。</summary>
+        public int ParameterStart;
+
+        /// <summary>参数字节数量。</summary>
+        public int ParameterCount;
     }
 
     /// <summary>冻结后的法术目录。</summary>
@@ -102,6 +127,12 @@ namespace RebornFrame.Spell
 
         /// <summary>事件引用的 Buff。</summary>
         public BlobArray<BuffId> Buffs;
+
+        /// <summary>法术引用的表现轨道。</summary>
+        public BlobArray<SpellPresentationTrackDefinition> Tracks;
+
+        /// <summary>表现轨道参数字节。</summary>
+        public BlobArray<byte> Parameters;
     }
 
     /// <summary>
@@ -164,13 +195,15 @@ namespace RebornFrame.Spell
             var tags = new List<TagId>();
             var events = new List<SpellEventDefinition>();
             var referenced = new List<BuffId>();
+            var tracks = new List<SpellPresentationTrackDefinition>();
+            var parameters = new List<byte>();
             var built = new List<SpellDefinition>(unique.Count);
             var schema = FnvOffset;
             for (var index = 0; index < unique.Count; index++)
             {
                 var definition = unique[index];
                 schema = Mix(schema, hashes[index]);
-                built.Add(Pack(definition, tags, events, referenced));
+                built.Add(Pack(definition, tags, events, referenced, tracks, parameters));
             }
 
             using var builder = new BlobBuilder(Allocator.Temp);
@@ -187,6 +220,12 @@ namespace RebornFrame.Spell
 
             var buffBlob = builder.Allocate(ref root.Buffs, referenced.Count);
             for (var index = 0; index < referenced.Count; index++) buffBlob[index] = referenced[index];
+
+            var trackBlob = builder.Allocate(ref root.Tracks, tracks.Count);
+            for (var index = 0; index < tracks.Count; index++) trackBlob[index] = tracks[index];
+
+            var parameterBlob = builder.Allocate(ref root.Parameters, parameters.Count);
+            for (var index = 0; index < parameters.Count; index++) parameterBlob[index] = parameters[index];
 
             return builder.CreateBlobAssetReference<SpellCatalogBlob>(allocator);
         }
@@ -255,6 +294,27 @@ namespace RebornFrame.Spell
                 ValidateEvent(definition, definition.Events[index], false, knownBuffs);
 
             if (definition.EndEvent != null) ValidateEvent(definition, definition.EndEvent, true, knownBuffs);
+
+            if (definition.PresentationTracks == null)
+                throw new ArgumentException($"法术 {definition.Id} 的表现轨道列表不能为 null。");
+
+            for (var index = 0; index < definition.PresentationTracks.Count; index++)
+                ValidateTrack(definition, definition.PresentationTracks[index]);
+        }
+
+        private static void ValidateTrack(SpellDefinitionData definition, SpellPresentationTrackAuthoring track)
+        {
+            if (track == null) throw new ArgumentException($"法术 {definition.Id} 的表现轨道不能为 null。");
+
+            if (track.TypeId.Value == 0)
+                throw new ArgumentException($"法术 {definition.Id} 的表现轨道种类无效。");
+
+            if (track.StartFrame < 0 || track.StartFrame > LibrarySpell.MaxFrames
+                || track.DurationFrames < 0 || track.DurationFrames > LibrarySpell.MaxFrames)
+                throw new ArgumentException($"法术 {definition.Id} 的表现轨道帧数超出范围。");
+
+            if (track.Parameters != null && track.Parameters.Length > LibrarySpell.MaxPresentationParameterBytes)
+                throw new ArgumentException($"法术 {definition.Id} 的表现轨道参数超出范围。");
         }
 
         private static void ValidateEvent(
@@ -365,7 +425,9 @@ namespace RebornFrame.Spell
             SpellDefinitionData source,
             List<TagId> tags,
             List<SpellEventDefinition> events,
-            List<BuffId> buffs)
+            List<BuffId> buffs,
+            List<SpellPresentationTrackDefinition> tracks,
+            List<byte> parameters)
         {
             var definition = new SpellDefinition
             {
@@ -377,7 +439,9 @@ namespace RebornFrame.Spell
                 AdmissionStart = tags.Count,
                 AdmissionCount = AddTags(tags, source.AdmissionTags),
                 EventStart = events.Count,
-                EventCount = source.Events.Count
+                EventCount = source.Events.Count,
+                TrackStart = tracks.Count,
+                TrackCount = source.PresentationTracks.Count
             };
             for (var index = 0; index < source.Events.Count; index++)
                 events.Add(PackEvent(source.Events[index], tags, buffs));
@@ -388,7 +452,28 @@ namespace RebornFrame.Spell
                 definition.EndEvent = PackEvent(source.EndEvent, tags, buffs);
             }
 
+            for (var index = 0; index < source.PresentationTracks.Count; index++)
+                tracks.Add(PackTrack(source.PresentationTracks[index], parameters));
+
             return definition;
+        }
+
+        private static SpellPresentationTrackDefinition PackTrack(
+            SpellPresentationTrackAuthoring source,
+            List<byte> parameters)
+        {
+            var bytes = source.Parameters ?? Array.Empty<byte>();
+            var track = new SpellPresentationTrackDefinition
+            {
+                TypeId = source.TypeId,
+                StartFrame = source.StartFrame,
+                DurationFrames = source.DurationFrames,
+                ParameterStart = parameters.Count,
+                ParameterCount = bytes.Length
+            };
+            for (var index = 0; index < bytes.Length; index++) parameters.Add(bytes[index]);
+
+            return track;
         }
 
         private static SpellEventDefinition PackEvent(
@@ -437,6 +522,22 @@ namespace RebornFrame.Spell
 
             hash = Mix(hash, definition.EndEvent == null ? (byte)0 : (byte)1);
             if (definition.EndEvent != null) hash = HashEvent(hash, definition.EndEvent);
+
+            hash = Mix(hash, (uint)definition.PresentationTracks.Count);
+            for (var index = 0; index < definition.PresentationTracks.Count; index++)
+                hash = HashTrack(hash, definition.PresentationTracks[index]);
+
+            return hash;
+        }
+
+        private static ulong HashTrack(ulong hash, SpellPresentationTrackAuthoring track)
+        {
+            hash = Mix(hash, track.TypeId.Value);
+            hash = Mix(hash, (uint)track.StartFrame);
+            hash = Mix(hash, (uint)track.DurationFrames);
+            var bytes = track.Parameters ?? Array.Empty<byte>();
+            hash = Mix(hash, (uint)bytes.Length);
+            for (var index = 0; index < bytes.Length; index++) hash = Mix(hash, bytes[index]);
 
             return hash;
         }

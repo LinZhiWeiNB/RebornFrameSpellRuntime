@@ -2,6 +2,7 @@ namespace RebornFrame.Spell
 {
     /// <summary>
     ///     作者 0、本地编号 0–99 的库保留法术标识，以及内置目标拾取。
+    ///     表现轨道种类里，作者 0 的本地编号 1–5 留给官方轨道包：粒子、新版粒子、音效、Spine、Unity Animation。
     /// </summary>
     public static class LibrarySpell
     {
@@ -19,6 +20,9 @@ namespace RebornFrame.Spell
 
         /// <summary>一次施法可以附带的瞄准载荷字节数。</summary>
         public const int MaxAimBytes = 256;
+
+        /// <summary>一条表现轨道参数的最大字节数。</summary>
+        public const int MaxPresentationParameterBytes = 4096;
 
         /// <summary>结算事件不指向时间轴事件时使用的序号。</summary>
         public const int NoEventIndex = -1;

@@ -15,6 +15,7 @@ namespace RebornFrame.Spell
         private readonly SystemHandle _clearSystem;
         private readonly SpellEventConsumerSystemGroup _eventGroup;
         private readonly SystemHandle _lifecycleSystem;
+        private readonly SystemHandle _presentationSystem;
         private readonly SpellPipelineSystemGroup _pipelineGroup;
         private readonly World _world;
         private bool _disposed;
@@ -26,8 +27,11 @@ namespace RebornFrame.Spell
             _eventGroup = world.GetOrCreateSystemManaged<SpellEventConsumerSystemGroup>();
             _lifecycleSystem = world.GetOrCreateSystem<SpellLifecycleSystem>();
             _clearSystem = world.GetOrCreateSystem<SpellClearSystem>();
+            _presentationSystem = world.GetOrCreateSystem<SpellPresentationDispatchSystem>();
+            SpellPresentation.Attach(world);
             _pipelineGroup.AddSystemToUpdateList(_lifecycleSystem);
             _pipelineGroup.AddSystemToUpdateList(_eventGroup);
+            _eventGroup.AddSystemToUpdateList(_presentationSystem);
             _pipelineGroup.AddSystemToUpdateList(_clearSystem);
             _pipelineGroup.SortSystems();
         }
@@ -40,12 +44,14 @@ namespace RebornFrame.Spell
             if (_disposed) return;
 
             _disposed = true;
+            SpellPresentation.Detach(_world);
             if (!_world.IsCreated) return;
 
             _world.DestroySystemManaged(_pipelineGroup);
             _world.DestroySystemManaged(_eventGroup);
             _world.DestroySystem(_clearSystem);
             _world.DestroySystem(_lifecycleSystem);
+            _world.DestroySystem(_presentationSystem);
         }
 
         /// <summary>

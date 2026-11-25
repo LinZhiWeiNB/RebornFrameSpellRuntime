@@ -220,6 +220,7 @@ namespace RebornFrame.Spell
                 attributePipeline = AttributePipeline.Create(world);
                 buffPipeline = BuffPipeline.Create(world);
                 spellPipeline = SpellPipeline.Create(world);
+                SpellPresentation.Prepare(spells);
             }
             catch
             {

@@ -381,6 +381,7 @@ namespace RebornFrame.Spell
                 InstanceId = instanceId,
                 SpellId = spellId,
                 OwnerStableId = ownerStableId,
+                PrimaryTargetStableId = primaryTarget,
                 Kind = SpellResolvedEventKind.Started,
                 EventIndex = LibrarySpell.NoEventIndex
             });
@@ -809,6 +810,7 @@ namespace RebornFrame.Spell
                 InstanceId = instance.InstanceId,
                 SpellId = instance.SpellId,
                 OwnerStableId = instance.OwnerStableId,
+                PrimaryTargetStableId = instance.PrimaryTargetStableId,
                 Kind = SpellResolvedEventKind.Ended,
                 EventIndex = LibrarySpell.NoEventIndex,
                 EndReason = reason
