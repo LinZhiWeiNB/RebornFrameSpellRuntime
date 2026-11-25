@@ -58,42 +58,49 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        ///     读出全部法术里的 Buff。法术时间轴由 <see cref="Spells" /> 单独读出。
+        ///     读出模块里的全体单位属性默认值。
+        /// </summary>
+        /// <param name="data">一份法术模块数据。</param>
+        /// <returns>属性默认值。</returns>
+        public static List<UnitAttributePresetEntry> AttributeLayout(SpellModuleData data)
+        {
+            var layout = new List<UnitAttributePresetEntry>(data.AttributeLayout.Count);
+            for (var index = 0; index < data.AttributeLayout.Count; index++)
+            {
+                var source = data.AttributeLayout[index];
+                layout.Add(new UnitAttributePresetEntry
+                {
+                    Id = new AttributeId(source.AttributeId),
+                    DefaultValue = new AttributeValue((AttributeValueKind)source.ValueKind, source.Raw)
+                });
+            }
+
+            return layout;
+        }
+
+        /// <summary>
+        ///     读出模块里的 Buff。
         /// </summary>
         /// <param name="data">一份法术模块数据。</param>
         /// <returns>Buff 定义。</returns>
         /// <exception cref="ArgumentException">效果版本超出 16 位。</exception>
         public static List<BuffDefinitionData> Buffs(SpellModuleData data)
         {
-            var count = 0;
-            for (var spellIndex = 0; spellIndex < data.Spells.Count; spellIndex++)
-                count += data.Spells[spellIndex].Buffs.Count;
-
-            var buffs = new List<BuffDefinitionData>(count);
-            for (var spellIndex = 0; spellIndex < data.Spells.Count; spellIndex++)
-            {
-                var sources = data.Spells[spellIndex].Buffs;
-                for (var index = 0; index < sources.Count; index++) buffs.Add(Buff(sources[index]));
-            }
+            var buffs = new List<BuffDefinitionData>(data.Buffs.Count);
+            for (var index = 0; index < data.Buffs.Count; index++) buffs.Add(Buff(data.Buffs[index]));
 
             return buffs;
         }
 
         /// <summary>
-        ///     读出带标识的法术。标识为 0 的条目只贡献 Buff，不注册时间轴。
+        ///     读出模块里的法术。
         /// </summary>
         /// <param name="data">一份法术模块数据。</param>
         /// <returns>法术定义。</returns>
         public static List<SpellDefinitionData> Spells(SpellModuleData data)
         {
-            var spells = new List<SpellDefinitionData>();
-            for (var index = 0; index < data.Spells.Count; index++)
-            {
-                var source = data.Spells[index];
-                if (source.Id == 0) continue;
-
-                spells.Add(Spell(source));
-            }
+            var spells = new List<SpellDefinitionData>(data.Spells.Count);
+            for (var index = 0; index < data.Spells.Count; index++) spells.Add(Spell(data.Spells[index]));
 
             return spells;
         }

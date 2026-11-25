@@ -155,13 +155,16 @@ namespace RebornFrame.Spell.Tests
                         Behavior = (int)AttributeBehavior.Numeric
                     }
                 },
-                Spells =
+                AttributeLayout =
                 {
-                    new SpellData
+                    new UnitAttributeDefaultConfig
                     {
-                        Buffs = { InfiniteBuff(BuffId.Combine(1, 1).Value) }
+                        AttributeId = Power.Value,
+                        ValueKind = (int)AttributeValueKind.Int32,
+                        Raw = 10
                     }
-                }
+                },
+                Buffs = { InfiniteBuff(BuffId.Combine(1, 1).Value) }
             };
             var second = new SpellModuleData
             {
@@ -169,13 +172,7 @@ namespace RebornFrame.Spell.Tests
                 {
                     new TagDefinitionConfig { Id = Attack.Value, ParentId = LibraryTags.None.Value }
                 },
-                Spells =
-                {
-                    new SpellData
-                    {
-                        Buffs = { InfiniteBuff(BuffId.Combine(2, 1).Value) }
-                    }
-                }
+                Buffs = { InfiniteBuff(BuffId.Combine(2, 1).Value) }
             }.ToByteArray();
 
             var world = new World(nameof(AddModuleData_MergesObjectAndBytes));
@@ -192,9 +189,11 @@ namespace RebornFrame.Spell.Tests
                 Assert.AreEqual(2, tags.Value.Definitions.Length);
                 var unit = world.EntityManager.CreateEntity();
                 startup.InitializeUnit(unit, 1);
+                Assert.IsTrue(AttributeAccess.TryRead(world.EntityManager, unit, Power, out var value));
+                Assert.AreEqual(10, value.CurrentBits);
                 Assert.IsTrue(BuffAccess.TryCreate(
                     world.EntityManager,
-                    new BuffId(first.Spells[0].Buffs[0].Id),
+                    new BuffId(first.Buffs[0].Id),
                     1,
                     1));
                 Assert.IsTrue(BuffAccess.TryCreate(
