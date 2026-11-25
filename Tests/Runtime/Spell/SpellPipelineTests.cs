@@ -344,13 +344,13 @@ namespace RebornFrame.Spell.Tests
         {
             var data = new SpellModuleData
             {
+                Buffs = { InfiniteConfig(Shield.Value) },
                 Spells =
                 {
                     new SpellData
                     {
                         Id = Fireball.Value,
                         Activation = (int)SpellActivation.Active,
-                        Buffs = { InfiniteConfig(Shield.Value) },
                         Events =
                         {
                             new SpellEventConfig

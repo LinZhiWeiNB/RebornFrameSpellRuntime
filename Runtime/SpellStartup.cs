@@ -151,10 +151,12 @@ namespace RebornFrame.Spell
 
             var tags = SpellModuleDataImport.Tags(data);
             var attributes = SpellModuleDataImport.Attributes(data);
+            var layout = SpellModuleDataImport.AttributeLayout(data);
             var buffs = SpellModuleDataImport.Buffs(data);
             var spells = SpellModuleDataImport.Spells(data);
             AddTags(tags);
             AddAttributes(attributes);
+            AddAttributeLayout(layout);
             AddBuffs(buffs);
             AddSpells(spells);
         }
