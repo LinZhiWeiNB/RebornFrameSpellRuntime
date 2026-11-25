@@ -22,6 +22,6 @@ namespace RebornFrame.Spell
         ExtraPercent = 5,
 
         /// <summary>最终重载。有贡献时属性结果直接取堆顶。</summary>
-        FinalOverride = 6,
+        FinalOverride = 6
     }
 }

@@ -7,7 +7,7 @@ namespace RebornFrame.Spell
     public sealed class AddModifierBuffEffect : BuffEffectBase
     {
         /// <summary>
-        /// 把参数当成 <see cref="AddModifierBuffEffectConfig"/> 并登记修改器。
+        ///     把参数当成 <see cref="AddModifierBuffEffectConfig" /> 并登记修改器。
         /// </summary>
         /// <param name="context">本次效果的读写入口。</param>
         /// <param name="parameters">修改器参数。</param>

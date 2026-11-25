@@ -4,7 +4,7 @@ using Unity.Entities;
 namespace RebornFrame.Spell
 {
     /// <summary>
-    /// 清空本 tick 的活动请求、效果和事件，保留缓冲容量。
+    ///     清空本 tick 的活动请求、效果和事件，保留缓冲容量。
     /// </summary>
     [BurstCompile]
     [DisableAutoCreation]
@@ -13,7 +13,7 @@ namespace RebornFrame.Spell
     public partial struct BuffClearSystem : ISystem
     {
         /// <summary>
-        /// 清空已经消费完的 Buff 批次数据。
+        ///     清空已经消费完的 Buff 批次数据。
         /// </summary>
         /// <param name="state">系统状态。</param>
         [BurstCompile]
@@ -43,10 +43,7 @@ namespace RebornFrame.Spell
                 worldEvents.Clear();
             }
 
-            foreach (var events in SystemAPI.Query<DynamicBuffer<BuffResolvedEvent>>())
-            {
-                events.Clear();
-            }
+            foreach (var events in SystemAPI.Query<DynamicBuffer<BuffResolvedEvent>>()) events.Clear();
         }
     }
 }

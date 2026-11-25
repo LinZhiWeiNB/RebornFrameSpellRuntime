@@ -3,7 +3,7 @@ using Unity.Entities;
 namespace RebornFrame.Spell
 {
     /// <summary>
-    /// World 中冻结属性目录的单例引用。
+    ///     World 中冻结属性目录的单例引用。
     /// </summary>
     internal struct AttributeCatalogReference : IComponentData
     {
@@ -12,7 +12,7 @@ namespace RebornFrame.Spell
     }
 
     /// <summary>
-    /// World 中冻结 Tag 目录的单例引用。
+    ///     World 中冻结 Tag 目录的单例引用。
     /// </summary>
     internal struct TagCatalogReference : IComponentData
     {
@@ -21,7 +21,7 @@ namespace RebornFrame.Spell
     }
 
     /// <summary>
-    /// 单位使用的共享属性布局。
+    ///     单位使用的共享属性布局。
     /// </summary>
     internal struct AttributeLayoutReference : IComponentData
     {
@@ -30,7 +30,7 @@ namespace RebornFrame.Spell
     }
 
     /// <summary>
-    /// 单位属性表中的一格。
+    ///     单位属性表中的一格。
     /// </summary>
     [InternalBufferCapacity(8)]
     internal struct AttributeValueSlot : IBufferElementData
@@ -49,7 +49,7 @@ namespace RebornFrame.Spell
     }
 
     /// <summary>
-    /// 本批尚未编号的结算事件草稿。发布系统按稳定键排序后再写入正式事件。
+    ///     本批尚未编号的结算事件草稿。发布系统按稳定键排序后再写入正式事件。
     /// </summary>
     [InternalBufferCapacity(4)]
     internal struct AttributeResolvedEventDraft : IBufferElementData
@@ -83,7 +83,7 @@ namespace RebornFrame.Spell
     }
 
     /// <summary>
-    /// 属性重算或资源请求完成后的只读结算事件。
+    ///     属性重算或资源请求完成后的只读结算事件。
     /// </summary>
     [InternalBufferCapacity(4)]
     public readonly struct AttributeResolvedEvent : IBufferElementData

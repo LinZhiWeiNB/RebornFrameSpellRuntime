@@ -3,7 +3,7 @@ using System;
 namespace RebornFrame.Spell
 {
     /// <summary>
-    /// 由作者 ID 和作者内部编号组成的全局 Tag 标识。
+    ///     由作者 ID 和作者内部编号组成的全局 Tag 标识。
     /// </summary>
     public readonly struct TagId : IEquatable<TagId>, IComparable<TagId>
     {
@@ -11,7 +11,7 @@ namespace RebornFrame.Spell
         public readonly ulong Value;
 
         /// <summary>
-        /// 使用完整值创建 Tag 标识。
+        ///     使用完整值创建 Tag 标识。
         /// </summary>
         /// <param name="value">完整的 64 位 Tag 标识。</param>
         public TagId(ulong value)
@@ -20,7 +20,7 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        /// 组合作者 ID 和作者内部编号。
+        ///     组合作者 ID 和作者内部编号。
         /// </summary>
         /// <param name="authorId">作者 ID。</param>
         /// <param name="localId">作者内部编号。</param>
@@ -86,14 +86,14 @@ namespace RebornFrame.Spell
     }
 
     /// <summary>
-    /// 全局 Tag 定义。层级通过父节点表达，类似 GAS 的点分继承。
+    ///     全局 Tag 定义。层级通过父节点表达，类似 GAS 的点分继承。
     /// </summary>
     public struct TagDefinition : IEquatable<TagDefinition>
     {
         /// <summary>Tag 标识。</summary>
         public TagId Id;
 
-        /// <summary>父 Tag；<see cref="LibraryTags.None"/> 表示根节点。</summary>
+        /// <summary>父 Tag；<see cref="LibraryTags.None" /> 表示根节点。</summary>
         public TagId ParentId;
 
         /// <inheritdoc />

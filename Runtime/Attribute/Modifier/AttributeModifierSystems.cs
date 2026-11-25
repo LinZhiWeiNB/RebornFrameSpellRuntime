@@ -5,8 +5,8 @@ using Unity.Entities;
 namespace RebornFrame.Spell
 {
     /// <summary>
-    /// 沿脏列表直接计算公式并写回。计算循环不产生新的脏记录，所以不再先抄一份快照。
-    /// 处理完当前列表后清空；本批之后的新设置留到下一次。
+    ///     沿脏列表直接计算公式并写回。计算循环不产生新的脏记录，所以不再先抄一份快照。
+    ///     处理完当前列表后清空；本批之后的新设置留到下一次。
     /// </summary>
     [BurstCompile]
     [DisableAutoCreation]
@@ -14,58 +14,43 @@ namespace RebornFrame.Spell
     public partial struct AttributeModifierCalcSystem : ISystem
     {
         /// <summary>
-        /// 逐条读取脏状态、计算并写回，然后清空脏列表。没有脏槽时直接返回。
+        ///     逐条读取脏状态、计算并写回，然后清空脏列表。没有脏槽时直接返回。
         /// </summary>
         /// <param name="state">系统状态。</param>
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
-            if (!SystemAPI.TryGetSingletonEntity<AttributeModifierWorkspace>(out Entity workspace))
-            {
-                return;
-            }
+            if (!SystemAPI.TryGetSingletonEntity<AttributeModifierWorkspace>(out var workspace)) return;
 
-            DynamicBuffer<AttributeModifierDirtyRef> dirty =
+            var dirty =
                 SystemAPI.GetBuffer<AttributeModifierDirtyRef>(workspace);
-            int count = dirty.Length;
-            if (count == 0)
-            {
-                return;
-            }
+            var count = dirty.Length;
+            if (count == 0) return;
 
-            BufferLookup<AttributeModifierState> states =
+            var states =
                 SystemAPI.GetBufferLookup<AttributeModifierState>();
-            BufferLookup<AttributeValueSlot> values =
+            var values =
                 SystemAPI.GetBufferLookup<AttributeValueSlot>();
-            BufferLookup<AttributeResolvedEventDraft> drafts =
+            var drafts =
                 SystemAPI.GetBufferLookup<AttributeResolvedEventDraft>();
-            for (int index = 0; index < count; index++)
+            for (var index = 0; index < count; index++)
             {
-                AttributeModifierDirtyRef reference = dirty[index];
-                if (!states.HasBuffer(reference.Unit))
-                {
-                    continue;
-                }
+                var reference = dirty[index];
+                if (!states.HasBuffer(reference.Unit)) continue;
 
-                DynamicBuffer<AttributeModifierState> unitStates = states[reference.Unit];
-                if ((uint)reference.Slot >= (uint)unitStates.Length)
-                {
-                    continue;
-                }
+                var unitStates = states[reference.Unit];
+                if ((uint)reference.Slot >= (uint)unitStates.Length) continue;
 
-                ref AttributeModifierState modifier = ref unitStates.ElementAt(reference.Slot);
-                if (modifier.Dirty == 0)
-                {
-                    continue;
-                }
+                ref var modifier = ref unitStates.ElementAt(reference.Slot);
+                if (modifier.Dirty == 0) continue;
 
-                AttributeModifierMath.Evaluate(in modifier, out long newBase, out long newFinal);
+                AttributeModifierMath.Evaluate(in modifier, out var newBase, out var newFinal);
                 // 先清脏再写属性。写草稿不会往脏列表追加，当前下标范围保持有效。
-                int slot = modifier.Slot;
-                AttributeId attributeId = modifier.Id;
-                AttributeBehavior behavior = modifier.Behavior;
-                AttributeValueKind valueKind = modifier.ValueKind;
-                byte scaleCurrentWithMax = modifier.ScaleCurrentWithMax;
+                var slot = modifier.Slot;
+                var attributeId = modifier.Id;
+                var behavior = modifier.Behavior;
+                var valueKind = modifier.ValueKind;
+                var scaleCurrentWithMax = modifier.ScaleCurrentWithMax;
                 modifier.Dirty = 0;
                 Apply(
                     reference.Unit,
@@ -84,7 +69,7 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        /// 把公式结果写入属性槽。资源同时处理 Max 和 Current。
+        ///     把公式结果写入属性槽。资源同时处理 Max 和 Current。
         /// </summary>
         /// <param name="unit">目标单位。</param>
         /// <param name="slot">属性槽位。</param>
@@ -96,7 +81,7 @@ namespace RebornFrame.Spell
         /// <param name="newFinal">计算出的最终值。</param>
         /// <param name="values">单位属性值。</param>
         /// <param name="drafts">单位事件草稿。</param>
-        static void Apply(
+        private static void Apply(
             Entity unit,
             int slot,
             AttributeId attributeId,
@@ -108,19 +93,13 @@ namespace RebornFrame.Spell
             ref BufferLookup<AttributeValueSlot> values,
             ref BufferLookup<AttributeResolvedEventDraft> drafts)
         {
-            if (!values.HasBuffer(unit) || !drafts.HasBuffer(unit))
-            {
-                return;
-            }
+            if (!values.HasBuffer(unit) || !drafts.HasBuffer(unit)) return;
 
-            DynamicBuffer<AttributeValueSlot> unitValues = values[unit];
-            if ((uint)slot >= (uint)unitValues.Length)
-            {
-                return;
-            }
+            var unitValues = values[unit];
+            if ((uint)slot >= (uint)unitValues.Length) return;
 
-            DynamicBuffer<AttributeResolvedEventDraft> unitDrafts = drafts[unit];
-            ref AttributeValueSlot value = ref unitValues.ElementAt(slot);
+            var unitDrafts = drafts[unit];
+            ref var value = ref unitValues.ElementAt(slot);
             value.BaseBits = newBase;
             if (behavior == AttributeBehavior.Resource)
             {
@@ -134,7 +113,7 @@ namespace RebornFrame.Spell
                 return;
             }
 
-            long oldCurrent = value.CurrentBits;
+            var oldCurrent = value.CurrentBits;
             value.CurrentBits = newFinal;
             AddDraftIfChanged(
                 unitDrafts,
@@ -146,7 +125,7 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        /// 把资源的 Max 和 Current 写入属性槽。Current 先按缩放标记处理，再限制在 <c>[0, Max]</c>。
+        ///     把资源的 Max 和 Current 写入属性槽。Current 先按缩放标记处理，再限制在 <c>[0, Max]</c>。
         /// </summary>
         /// <param name="attributeId">属性标识。</param>
         /// <param name="valueKind">值类型。</param>
@@ -154,7 +133,7 @@ namespace RebornFrame.Spell
         /// <param name="newFinal">计算出的最终值，资源解释为 Max。</param>
         /// <param name="value">单位上的这一格属性值。</param>
         /// <param name="drafts">单位事件草稿。</param>
-        static void ApplyResource(
+        private static void ApplyResource(
             AttributeId attributeId,
             AttributeValueKind valueKind,
             byte scaleCurrentWithMax,
@@ -162,18 +141,16 @@ namespace RebornFrame.Spell
             ref AttributeValueSlot value,
             DynamicBuffer<AttributeResolvedEventDraft> drafts)
         {
-            long oldMax = value.MaxBits;
-            long oldCurrent = value.CurrentBits;
-            long newMax = newFinal < 0 ? 0 : newFinal;
-            long candidate = oldCurrent;
+            var oldMax = value.MaxBits;
+            var oldCurrent = value.CurrentBits;
+            var newMax = newFinal < 0 ? 0 : newFinal;
+            var candidate = oldCurrent;
             if (scaleCurrentWithMax != 0 && oldMax > 0)
-            {
                 candidate = valueKind == AttributeValueKind.Fixed64
                     ? ScaleFixedCurrent(oldCurrent, newMax, oldMax)
                     : WideMath.MultiplyDivideRounded(oldCurrent, newMax, oldMax);
-            }
 
-            long newCurrent = candidate < 0
+            var newCurrent = candidate < 0
                 ? 0
                 : candidate > newMax
                     ? newMax
@@ -191,7 +168,7 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        /// 新旧值不同时追加一条重算草稿。
+        ///     新旧值不同时追加一条重算草稿。
         /// </summary>
         /// <param name="drafts">单位事件草稿。</param>
         /// <param name="attributeId">属性标识。</param>
@@ -199,7 +176,7 @@ namespace RebornFrame.Spell
         /// <param name="target">写入位置。</param>
         /// <param name="oldBits">写入前的原始值。</param>
         /// <param name="newBits">写入后的原始值。</param>
-        static void AddDraftIfChanged(
+        private static void AddDraftIfChanged(
             DynamicBuffer<AttributeResolvedEventDraft> drafts,
             AttributeId attributeId,
             AttributeValueKind valueKind,
@@ -207,10 +184,7 @@ namespace RebornFrame.Spell
             long oldBits,
             long newBits)
         {
-            if (oldBits == newBits)
-            {
-                return;
-            }
+            if (oldBits == newBits) return;
 
             drafts.Add(new AttributeResolvedEventDraft
             {
@@ -222,27 +196,25 @@ namespace RebornFrame.Spell
                 OldBits = oldBits,
                 NewBits = newBits,
                 DeltaBits = 0,
-                Recalculation = 1,
+                Recalculation = 1
             });
         }
 
         /// <summary>
-        /// 按 Q32.32 把当前值随 Max 比例缩放。融合乘除失败时饱和到最大值。
+        ///     按 Q32.32 把当前值随 Max 比例缩放。融合乘除失败时饱和到最大值。
         /// </summary>
         /// <param name="oldCurrent">缩放前的当前值。</param>
         /// <param name="newMax">新的 Max。</param>
         /// <param name="oldMax">旧的 Max。</param>
         /// <returns>缩放后的当前值。</returns>
-        static long ScaleFixedCurrent(long oldCurrent, long newMax, long oldMax)
+        private static long ScaleFixedCurrent(long oldCurrent, long newMax, long oldMax)
         {
             if (!Fixed64.TryMultiplyDivide(
                     Fixed64.FromRaw(oldCurrent),
                     Fixed64.FromRaw(newMax),
                     Fixed64.FromRaw(oldMax),
-                    out Fixed64 scaled))
-            {
+                    out var scaled))
                 return Fixed64.MaxValue.m_rawValue;
-            }
 
             return scaled.m_rawValue;
         }

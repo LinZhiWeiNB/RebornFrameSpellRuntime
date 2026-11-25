@@ -30,17 +30,11 @@ namespace RebornFrame.Spell
         /// <inheritdoc />
         public int CompareTo(BuffCreateRequest other)
         {
-            int target = TargetStableId.CompareTo(other.TargetStableId);
-            if (target != 0)
-            {
-                return target;
-            }
+            var target = TargetStableId.CompareTo(other.TargetStableId);
+            if (target != 0) return target;
 
-            int buff = BuffId.CompareTo(other.BuffId);
-            if (buff != 0)
-            {
-                return buff;
-            }
+            var buff = BuffId.CompareTo(other.BuffId);
+            if (buff != 0) return buff;
 
             return RequestId.CompareTo(other.RequestId);
         }

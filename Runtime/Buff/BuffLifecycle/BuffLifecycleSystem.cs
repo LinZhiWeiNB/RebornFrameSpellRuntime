@@ -5,7 +5,7 @@ using Unity.Entities;
 namespace RebornFrame.Spell
 {
     /// <summary>按稳定 ID 排序后的单位引用。</summary>
-    struct BuffUnitRef : IComparable<BuffUnitRef>
+    internal struct BuffUnitRef : IComparable<BuffUnitRef>
     {
         /// <summary>单位稳定 ID。</summary>
         public ulong StableId;
@@ -21,23 +21,23 @@ namespace RebornFrame.Spell
     }
 
     /// <summary>
-    /// 分批抽走 Pending 并改 Buff 结构。前半段是创建、信号、步进、信号。
-    /// 销毁和最后一轮信号在属性结算之后执行。每个结构阶段后立即分发该阶段排出的效果。
-    /// 热路径只复用本系统持有的 NativeList。
+    ///     分批抽走 Pending 并改 Buff 结构。前半段是创建、信号、步进、信号。
+    ///     销毁和最后一轮信号在属性结算之后执行。每个结构阶段后立即分发该阶段排出的效果。
+    ///     热路径只复用本系统持有的 NativeList。
     /// </summary>
     [DisableAutoCreation]
     [UpdateInGroup(typeof(BuffPipelineSystemGroup), OrderFirst = true)]
     public partial struct BuffLifecycleSystem : ISystem
     {
-        NativeList<BuffUnitRef> _units;
-        NativeList<BuffCreateRequest> _creates;
-        NativeList<BuffDestroyRequest> _destroys;
-        NativeList<BuffIterateRequest> _iterates;
-        NativeList<BuffSignalRequest> _signals;
-        NativeList<int> _layerIds;
+        private NativeList<BuffUnitRef> _units;
+        private NativeList<BuffCreateRequest> _creates;
+        private NativeList<BuffDestroyRequest> _destroys;
+        private NativeList<BuffIterateRequest> _iterates;
+        private NativeList<BuffSignalRequest> _signals;
+        private NativeList<int> _layerIds;
 
         /// <summary>
-        /// 分配可跨 tick 复用的排序缓冲。
+        ///     分配可跨 tick 复用的排序缓冲。
         /// </summary>
         /// <param name="state">系统状态。</param>
         public void OnCreate(ref SystemState state)
@@ -51,7 +51,7 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        /// 释放排序缓冲。
+        ///     释放排序缓冲。
         /// </summary>
         /// <param name="state">系统状态。</param>
         public void OnDestroy(ref SystemState state)
@@ -65,19 +65,17 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        /// 处理创建、信号、步进，以及步进之后的信号。销毁留到属性结算之后。
+        ///     处理创建、信号、步进，以及步进之后的信号。销毁留到属性结算之后。
         /// </summary>
         /// <param name="state">系统状态。</param>
         public void OnUpdate(ref SystemState state)
         {
-            if (!TryPrepare(ref state, out EntityManager entityManager, out Entity singleton,
-                    out BlobAssetReference<BuffCatalogBlob> catalog,
-                    out BlobAssetReference<TagCatalogBlob> tags))
-            {
+            if (!TryPrepare(ref state, out var entityManager, out var singleton,
+                    out var catalog,
+                    out var tags))
                 return;
-            }
 
-            int logicTick = entityManager.GetComponentData<BuffSimulationState>(singleton).LogicTick;
+            var logicTick = entityManager.GetComponentData<BuffSimulationState>(singleton).LogicTick;
             // 创建先落地，后面的信号和步进才能作用到本 tick 的新实例。
             DrainCreates(entityManager, singleton);
             ProcessCreates(entityManager, singleton, catalog, tags, logicTick);
@@ -98,17 +96,15 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        /// 属性结算完成后处理销毁和最后一轮信号。
+        ///     属性结算完成后处理销毁和最后一轮信号。
         /// </summary>
         /// <param name="state">系统状态。</param>
         public void OnCompleteAfterAttributes(ref SystemState state)
         {
-            if (!TryPrepare(ref state, out EntityManager entityManager, out Entity singleton,
-                    out BlobAssetReference<BuffCatalogBlob> catalog,
-                    out BlobAssetReference<TagCatalogBlob> tags))
-            {
+            if (!TryPrepare(ref state, out var entityManager, out var singleton,
+                    out var catalog,
+                    out var tags))
                 return;
-            }
 
             DrainDestroys(entityManager, singleton);
             ProcessDestroys(entityManager, singleton, catalog);
@@ -120,7 +116,7 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        /// 收集本 tick 的单位、目录和 Tag。没有唯一 Buff 目录时返回 false。
+        ///     收集本 tick 的单位、目录和 Tag。没有唯一 Buff 目录时返回 false。
         /// </summary>
         /// <param name="state">系统状态。</param>
         /// <param name="entityManager">当前 World 的实体管理器。</param>
@@ -128,7 +124,7 @@ namespace RebornFrame.Spell
         /// <param name="catalog">冻结的 Buff 目录。</param>
         /// <param name="tags">冻结的 Tag 目录。不存在时为默认值。</param>
         /// <returns>准备成功时为 true。</returns>
-        bool TryPrepare(
+        private bool TryPrepare(
             ref SystemState state,
             out EntityManager entityManager,
             out Entity singleton,
@@ -136,7 +132,7 @@ namespace RebornFrame.Spell
             out BlobAssetReference<TagCatalogBlob> tags)
         {
             entityManager = state.EntityManager;
-            using EntityQuery catalogQuery =
+            using var catalogQuery =
                 entityManager.CreateEntityQuery(ComponentType.ReadOnly<BuffCatalogReference>());
             if (catalogQuery.CalculateEntityCount() != 1)
             {
@@ -152,76 +148,60 @@ namespace RebornFrame.Spell
             CollectUnits(entityManager);
             catalog = entityManager.GetComponentData<BuffCatalogReference>(singleton).Value;
             tags = default;
-            using EntityQuery tagQuery =
+            using var tagQuery =
                 entityManager.CreateEntityQuery(ComponentType.ReadOnly<TagCatalogReference>());
-            if (tagQuery.CalculateEntityCount() == 1)
-            {
-                tags = tagQuery.GetSingleton<TagCatalogReference>().Value;
-            }
+            if (tagQuery.CalculateEntityCount() == 1) tags = tagQuery.GetSingleton<TagCatalogReference>().Value;
 
             return true;
         }
 
         /// <summary>
-        /// 分发当前已经入队、尚未处理的效果。
+        ///     分发当前已经入队、尚未处理的效果。
         /// </summary>
         /// <param name="state">生命周期系统状态。</param>
-        static void DispatchEffects(ref SystemState state)
+        private static void DispatchEffects(ref SystemState state)
         {
-            BuffEffectDispatchSystemGroup group =
+            var group =
                 state.World.GetExistingSystemManaged<BuffEffectDispatchSystemGroup>();
-            if (group == null)
-            {
-                return;
-            }
+            if (group == null) return;
 
             group.RunStaged();
         }
 
         /// <summary>释放一份可复用列表。未创建时跳过。</summary>
-        static void Dispose<T>(ref NativeList<T> list)
+        private static void Dispose<T>(ref NativeList<T> list)
             where T : unmanaged
         {
-            if (list.IsCreated)
-            {
-                list.Dispose();
-            }
+            if (list.IsCreated) list.Dispose();
         }
 
         /// <summary>收集单位并按稳定 ID 排序。0 或重复直接失败，后续查找都走这份表。</summary>
-        void CollectUnits(EntityManager entityManager)
+        private void CollectUnits(EntityManager entityManager)
         {
             _units.Clear();
-            using EntityQuery query =
+            using var query =
                 entityManager.CreateEntityQuery(ComponentType.ReadOnly<SpellStableId>());
-            using NativeArray<Entity> entities = query.ToEntityArray(Allocator.Temp);
-            for (int index = 0; index < entities.Length; index++)
+            using var entities = query.ToEntityArray(Allocator.Temp);
+            for (var index = 0; index < entities.Length; index++)
             {
-                Entity entity = entities[index];
-                ulong stableId = entityManager.GetComponentData<SpellStableId>(entity).Value;
-                if (stableId == 0)
-                {
-                    throw new InvalidOperationException("Buff 单位的稳定 ID 不能为 0。");
-                }
+                var entity = entities[index];
+                var stableId = entityManager.GetComponentData<SpellStableId>(entity).Value;
+                if (stableId == 0) throw new InvalidOperationException("Buff 单位的稳定 ID 不能为 0。");
 
                 _units.Add(new BuffUnitRef { StableId = stableId, Entity = entity });
             }
 
             _units.Sort();
             // 排序后相邻比较即可发现重复，不依赖实体创建顺序。
-            for (int index = 1; index < _units.Length; index++)
-            {
+            for (var index = 1; index < _units.Length; index++)
                 if (_units[index].StableId == _units[index - 1].StableId)
-                {
                     throw new InvalidOperationException(
                         $"稳定 ID {_units[index].StableId} 重复。");
-                }
-            }
         }
 
         /// <summary>把实例标成死亡并摘掉它授予的 Tag。行和属性修改器留到清理阶段。</summary>
         /// <returns>这次真正结束了实例时为 true。已经死亡则返回 false。</returns>
-        bool Tombstone(
+        private bool Tombstone(
             EntityManager entityManager,
             Entity singleton,
             BlobAssetReference<BuffCatalogBlob> catalog,
@@ -231,17 +211,15 @@ namespace RebornFrame.Spell
             BuffRemoveReason reason,
             bool queueEffects)
         {
-            DynamicBuffer<BuffInstanceElement> instances =
+            var instances =
                 entityManager.GetBuffer<BuffInstanceElement>(entity);
-            BuffInstanceElement instance = instances[instanceIndex];
+            var instance = instances[instanceIndex];
             if (instance.Alive == 0)
-            {
                 // 同一个实例本 tick 只能结束一次。
                 return false;
-            }
 
-            int oldStack = instance.StackCount;
-            int oldRemain = instance.DurationMode == BuffDurationMode.Shared
+            var oldStack = instance.StackCount;
+            var oldRemain = instance.DurationMode == BuffDurationMode.Shared
                 ? instance.SharedRemain
                 : 0;
             instance.Alive = 0;
@@ -251,7 +229,7 @@ namespace RebornFrame.Spell
             RemoveContributions(entityManager, entity, instance.InstanceId);
             if (queueEffects)
             {
-                ref BuffDefinition definition = ref catalog.Value.Definitions[instance.DefinitionIndex];
+                ref var definition = ref catalog.Value.Definitions[instance.DefinitionIndex];
                 QueueEffects(
                     entityManager,
                     singleton,
@@ -265,14 +243,14 @@ namespace RebornFrame.Spell
                         RemoveReason = reason,
                         Instance = instance,
                         OldStackCount = oldStack,
-                        OldRemain = oldRemain,
+                        OldRemain = oldRemain
                     });
             }
 
             entityManager.GetBuffer<BuffTombstone>(singleton).Add(new BuffTombstone
             {
                 InstanceId = instance.InstanceId,
-                Target = entity,
+                Target = entity
             });
             AddEvent(entityManager, entity, new BuffResolvedEvent
             {
@@ -284,13 +262,13 @@ namespace RebornFrame.Spell
                 SourceStableId = instance.SourceStableId,
                 RemoveReason = reason,
                 OldStack = oldStack,
-                OldRemain = oldRemain,
+                OldRemain = oldRemain
             });
             return true;
         }
 
         /// <summary>发一条更新事件，并排队该实例的更新效果。</summary>
-        void PublishUpdate(
+        private void PublishUpdate(
             EntityManager entityManager,
             Entity singleton,
             BlobAssetReference<BuffCatalogBlob> catalog,
@@ -315,9 +293,9 @@ namespace RebornFrame.Spell
                 OldStack = oldStack,
                 NewStack = newStack,
                 OldRemain = oldRemain,
-                NewRemain = newRemain,
+                NewRemain = newRemain
             });
-            ref BuffDefinition definition = ref catalog.Value.Definitions[instance.DefinitionIndex];
+            ref var definition = ref catalog.Value.Definitions[instance.DefinitionIndex];
             QueueEffects(
                 entityManager,
                 singleton,
@@ -333,14 +311,14 @@ namespace RebornFrame.Spell
                     OldStackCount = oldStack,
                     StackCount = newStack,
                     OldRemain = oldRemain,
-                    Remain = newRemain,
+                    Remain = newRemain
                 });
         }
 
         /// <summary>
-        /// 按目录中的效果区间追加请求。层数或剩余为 0 时改用实例快照，触发阶段以外的触发器序号写成 -1。
+        ///     按目录中的效果区间追加请求。层数或剩余为 0 时改用实例快照，触发阶段以外的触发器序号写成 -1。
         /// </summary>
-        static void QueueEffects(
+        private static void QueueEffects(
             EntityManager entityManager,
             Entity singleton,
             BlobAssetReference<BuffCatalogBlob> catalog,
@@ -348,12 +326,12 @@ namespace RebornFrame.Spell
             int count,
             BuffEffectQueue queue)
         {
-            DynamicBuffer<BuffEffectRequest> effects =
+            var effects =
                 entityManager.GetBuffer<BuffEffectRequest>(singleton);
-            BuffSimulationState state = entityManager.GetComponentData<BuffSimulationState>(singleton);
-            for (int index = 0; index < count; index++)
+            var state = entityManager.GetComponentData<BuffSimulationState>(singleton);
+            for (var index = 0; index < count; index++)
             {
-                ref BuffEffectBinding binding = ref catalog.Value.Effects[start + index];
+                ref var binding = ref catalog.Value.Effects[start + index];
                 // Sequence 只记录本 tick 的入队先后，下一次 UpdateOnce 会从 0 重新计。
                 state.EffectSequence++;
                 effects.Add(new BuffEffectRequest
@@ -381,7 +359,7 @@ namespace RebornFrame.Spell
                     BindingIndex = start + index,
                     PayloadVersion = binding.Version,
                     PayloadOffset = binding.PayloadOffset,
-                    PayloadLength = binding.PayloadLength,
+                    PayloadLength = binding.PayloadLength
                 });
                 BuffEffectDispatchRoutes.Route(entityManager.World, effects.Length - 1, binding.EffectId);
             }
@@ -391,30 +369,24 @@ namespace RebornFrame.Spell
 
         /// <summary>在已排序的单位表里按实例 ID 查找。</summary>
         /// <returns>找到时为 true。</returns>
-        bool TryFindInstance(
+        private bool TryFindInstance(
             EntityManager entityManager,
             long instanceId,
             bool requireAlive,
             out Entity entity,
             out int index)
         {
-            for (int unitIndex = 0; unitIndex < _units.Length; unitIndex++)
+            for (var unitIndex = 0; unitIndex < _units.Length; unitIndex++)
             {
-                Entity candidate = _units[unitIndex].Entity;
-                DynamicBuffer<BuffInstanceElement> instances =
+                var candidate = _units[unitIndex].Entity;
+                var instances =
                     entityManager.GetBuffer<BuffInstanceElement>(candidate);
-                for (int instanceIndex = 0; instanceIndex < instances.Length; instanceIndex++)
+                for (var instanceIndex = 0; instanceIndex < instances.Length; instanceIndex++)
                 {
-                    BuffInstanceElement instance = instances[instanceIndex];
-                    if (instance.InstanceId != instanceId)
-                    {
-                        continue;
-                    }
+                    var instance = instances[instanceIndex];
+                    if (instance.InstanceId != instanceId) continue;
 
-                    if (requireAlive && instance.Alive == 0)
-                    {
-                        continue;
-                    }
+                    if (requireAlive && instance.Alive == 0) continue;
 
                     entity = candidate;
                     index = instanceIndex;
@@ -429,50 +401,41 @@ namespace RebornFrame.Spell
 
         /// <summary>在已排序的单位表里二分查找稳定 ID。</summary>
         /// <returns>单位下标。不存在时为 -1。</returns>
-        int IndexOf(ulong stableId)
+        private int IndexOf(ulong stableId)
         {
-            int low = 0;
-            int high = _units.Length - 1;
+            var low = 0;
+            var high = _units.Length - 1;
             while (low <= high)
             {
-                int middle = low + ((high - low) >> 1);
-                ulong value = _units[middle].StableId;
-                if (value == stableId)
-                {
-                    return middle;
-                }
+                var middle = low + ((high - low) >> 1);
+                var value = _units[middle].StableId;
+                if (value == stableId) return middle;
 
                 if (value < stableId)
-                {
                     low = middle + 1;
-                }
                 else
-                {
                     high = middle - 1;
-                }
             }
 
             return -1;
         }
 
         /// <summary>删除指定实例授予的 Tag 贡献，固有 Tag 保留。</summary>
-        static void RemoveContributions(EntityManager entityManager, Entity entity, long instanceId)
+        private static void RemoveContributions(EntityManager entityManager, Entity entity, long instanceId)
         {
-            DynamicBuffer<GameplayTagContribution> tags =
+            var tags =
                 entityManager.GetBuffer<GameplayTagContribution>(entity);
-            for (int index = tags.Length - 1; index >= 0; index--)
+            for (var index = tags.Length - 1; index >= 0; index--)
             {
-                GameplayTagContribution tag = tags[index];
+                var tag = tags[index];
                 if (tag.SourceKind == GameplayTagSourceKind.Buff && tag.SourceId == instanceId)
-                {
                     tags.RemoveAtSwapBack(index);
-                }
             }
         }
 
         /// <summary>按 All、Any 或 NotAny 判断单位 Tag。未设置的查询要求列出的 Tag 全部命中。</summary>
         /// <returns>条件成立时为 true。</returns>
-        static bool TagsMatch(
+        private static bool TagsMatch(
             EntityManager entityManager,
             Entity entity,
             BlobAssetReference<TagCatalogBlob> tags,
@@ -484,13 +447,9 @@ namespace RebornFrame.Spell
             if (query == BuffTagQuery.Any)
             {
                 // 任一列出的 Tag 命中即可。
-                for (int index = 0; index < count; index++)
-                {
+                for (var index = 0; index < count; index++)
                     if (HasContribution(entityManager, entity, tags, catalog.Value.Tags[start + index]))
-                    {
                         return true;
-                    }
-                }
 
                 return false;
             }
@@ -498,65 +457,53 @@ namespace RebornFrame.Spell
             if (query == BuffTagQuery.NotAny)
             {
                 // 列出的 Tag 一个都不能命中。
-                for (int index = 0; index < count; index++)
-                {
+                for (var index = 0; index < count; index++)
                     if (HasContribution(entityManager, entity, tags, catalog.Value.Tags[start + index]))
-                    {
                         return false;
-                    }
-                }
 
                 return true;
             }
 
-            for (int index = 0; index < count; index++)
-            {
+            for (var index = 0; index < count; index++)
                 // All，以及未设置的查询：列出的 Tag 必须全部命中。
                 if (!HasContribution(entityManager, entity, tags, catalog.Value.Tags[start + index]))
-                {
                     return false;
-                }
-            }
 
             return true;
         }
 
         /// <summary>单位当前贡献是否覆盖查询 Tag，包含父级。</summary>
         /// <returns>命中时为 true。</returns>
-        static bool HasContribution(
+        private static bool HasContribution(
             EntityManager entityManager,
             Entity entity,
             BlobAssetReference<TagCatalogBlob> catalog,
             TagId query)
         {
-            DynamicBuffer<GameplayTagContribution> tags =
+            var tags =
                 entityManager.GetBuffer<GameplayTagContribution>(entity);
-            for (int index = 0; index < tags.Length; index++)
-            {
+            for (var index = 0; index < tags.Length; index++)
                 if (TagCatalog.Covers(catalog, tags[index].Tag, query))
-                {
                     return true;
-                }
-            }
 
             return false;
         }
 
         /// <summary>把事件记到单位上，供本 tick 末尾的消费者读取。</summary>
-        static void AddEvent(EntityManager entityManager, Entity entity, in BuffResolvedEvent value)
+        private static void AddEvent(EntityManager entityManager, Entity entity, in BuffResolvedEvent value)
         {
             entityManager.GetBuffer<BuffResolvedEvent>(entity).Add(value);
         }
 
         /// <summary>目标单位不存在时，把事件记到目录实体上。</summary>
-        static void AddWorldEvent(EntityManager entityManager, Entity singleton, in BuffResolvedEvent value)
+        private static void AddWorldEvent(EntityManager entityManager, Entity singleton, in BuffResolvedEvent value)
         {
             entityManager.GetBuffer<BuffResolvedEvent>(singleton).Add(value);
         }
     }
 
     /// <summary>把一条结构变化转换成效果请求所需的快照。</summary>
-    struct BuffEffectQueue
+    internal struct BuffEffectQueue
     {
         /// <summary>引起效果的请求。</summary>
         public ulong CauseRequestId;

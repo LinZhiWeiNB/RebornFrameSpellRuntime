@@ -27,11 +27,8 @@ namespace RebornFrame.Spell
         /// <inheritdoc />
         public int CompareTo(BuffIterateRequest other)
         {
-            int clock = Clock.CompareTo(other.Clock);
-            if (clock != 0)
-            {
-                return clock;
-            }
+            var clock = Clock.CompareTo(other.Clock);
+            if (clock != 0) return clock;
 
             return RequestId.CompareTo(other.RequestId);
         }

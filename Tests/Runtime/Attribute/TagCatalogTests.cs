@@ -6,21 +6,21 @@ using Unity.Entities;
 namespace RebornFrame.Spell.Tests
 {
     /// <summary>
-    /// Tag 目录、保留编号和层级匹配测试。
+    ///     Tag 目录、保留编号和层级匹配测试。
     /// </summary>
     public sealed class TagCatalogTests
     {
-        static readonly TagId Attack = TagId.Combine(1, 1);
-        static readonly TagId Miss = TagId.Combine(1, 2);
-        static readonly TagId DeveloperRoot = TagId.Combine(0, 100);
+        private static readonly TagId Attack = TagId.Combine(1, 1);
+        private static readonly TagId Miss = TagId.Combine(1, 2);
+        private static readonly TagId DeveloperRoot = TagId.Combine(0, 100);
 
         /// <summary>
-        /// 验证空配置仍会注入库保留的 Recalculation。
+        ///     验证空配置仍会注入库保留的 Recalculation。
         /// </summary>
         [Test]
         public void Build_Empty_InjectsRecalculation()
         {
-            BlobAssetReference<TagCatalogBlob> catalog = TagCatalog.Build(
+            var catalog = TagCatalog.Build(
                 Array.Empty<TagDefinition>(),
                 Allocator.Persistent);
             try
@@ -28,7 +28,7 @@ namespace RebornFrame.Spell.Tests
                 Assert.IsTrue(TagCatalog.TryFindDefinition(
                     catalog,
                     LibraryTags.Recalculation,
-                    out TagDefinition definition));
+                    out var definition));
                 Assert.AreEqual(LibraryTags.None, definition.ParentId);
             }
             finally
@@ -38,7 +38,7 @@ namespace RebornFrame.Spell.Tests
         }
 
         /// <summary>
-        /// 验证作者 0 的全部库保留编号都不能由外部创建。
+        ///     验证作者 0 的全部库保留编号都不能由外部创建。
         /// </summary>
         /// <param name="localId">待验证的保留本地编号。</param>
         [TestCase(0u)]
@@ -54,26 +54,26 @@ namespace RebornFrame.Spell.Tests
                         new TagDefinition
                         {
                             Id = TagId.Combine(0, localId),
-                            ParentId = LibraryTags.None,
-                        },
+                            ParentId = LibraryTags.None
+                        }
                     },
                     Allocator.Persistent));
         }
 
         /// <summary>
-        /// 验证作者 0 且本地编号不小于 100 的开发者 Tag 可以创建。
+        ///     验证作者 0 且本地编号不小于 100 的开发者 Tag 可以创建。
         /// </summary>
         [Test]
         public void Build_DeveloperAuthorZero_AllowsLocalIdAtLeastReservedCount()
         {
-            BlobAssetReference<TagCatalogBlob> catalog = TagCatalog.Build(
+            var catalog = TagCatalog.Build(
                 new[]
                 {
                     new TagDefinition
                     {
                         Id = DeveloperRoot,
-                        ParentId = LibraryTags.None,
-                    },
+                        ParentId = LibraryTags.None
+                    }
                 },
                 Allocator.Persistent);
             try
@@ -87,7 +87,7 @@ namespace RebornFrame.Spell.Tests
         }
 
         /// <summary>
-        /// 验证未知父节点会让构建失败。
+        ///     验证未知父节点会让构建失败。
         /// </summary>
         [Test]
         public void Build_UnknownParent_Throws()
@@ -99,14 +99,14 @@ namespace RebornFrame.Spell.Tests
                         new TagDefinition
                         {
                             Id = Miss,
-                            ParentId = Attack,
-                        },
+                            ParentId = Attack
+                        }
                     },
                     Allocator.Persistent));
         }
 
         /// <summary>
-        /// 验证父链成环会让构建失败。
+        ///     验证父链成环会让构建失败。
         /// </summary>
         [Test]
         public void Build_ParentCycle_Throws()
@@ -118,43 +118,43 @@ namespace RebornFrame.Spell.Tests
                         new TagDefinition
                         {
                             Id = Attack,
-                            ParentId = Miss,
+                            ParentId = Miss
                         },
                         new TagDefinition
                         {
                             Id = Miss,
-                            ParentId = Attack,
-                        },
+                            ParentId = Attack
+                        }
                     },
                     Allocator.Persistent));
         }
 
         /// <summary>
-        /// 验证 GAS 风格匹配能命中子孙，精确包含不能。
+        ///     验证 GAS 风格匹配能命中子孙，精确包含不能。
         /// </summary>
         [Test]
         public void RequestTags_Matches_UsesParentHierarchy()
         {
-            BlobAssetReference<TagCatalogBlob> catalog = TagCatalog.Build(
+            var catalog = TagCatalog.Build(
                 new[]
                 {
                     new TagDefinition
                     {
                         Id = Attack,
-                        ParentId = LibraryTags.None,
+                        ParentId = LibraryTags.None
                     },
                     new TagDefinition
                     {
                         Id = Miss,
-                        ParentId = Attack,
-                    },
+                        ParentId = Attack
+                    }
                 },
                 Allocator.Persistent);
-            World world = new World(nameof(RequestTags_Matches_UsesParentHierarchy));
+            var world = new World(nameof(RequestTags_Matches_UsesParentHierarchy));
             try
             {
-                Entity entity = world.EntityManager.CreateEntity();
-                DynamicBuffer<AttributeRequestTag> tags =
+                var entity = world.EntityManager.CreateEntity();
+                var tags =
                     world.EntityManager.AddBuffer<AttributeRequestTag>(entity);
                 Assert.IsTrue(AttributeRequestTags.TryAdd(
                     tags,
@@ -193,16 +193,16 @@ namespace RebornFrame.Spell.Tests
         }
 
         /// <summary>
-        /// 验证 None 不能加入列表，重复加入不增加数量。
+        ///     验证 None 不能加入列表，重复加入不增加数量。
         /// </summary>
         [Test]
         public void RequestTags_TryAdd_RejectsNoneAndDuplicates()
         {
-            World world = new World(nameof(RequestTags_TryAdd_RejectsNoneAndDuplicates));
+            var world = new World(nameof(RequestTags_TryAdd_RejectsNoneAndDuplicates));
             try
             {
-                Entity entity = world.EntityManager.CreateEntity();
-                DynamicBuffer<AttributeRequestTag> tags =
+                var entity = world.EntityManager.CreateEntity();
+                var tags =
                     world.EntityManager.AddBuffer<AttributeRequestTag>(entity);
                 Assert.IsFalse(AttributeRequestTags.TryAdd(
                     tags,

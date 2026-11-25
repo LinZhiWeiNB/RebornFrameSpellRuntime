@@ -3,7 +3,7 @@ using Unity.Entities;
 namespace RebornFrame.Spell
 {
     /// <summary>
-    /// 单位在模拟和网络中的稳定标识。0 无效，当前战斗内不得复用。
+    ///     单位在模拟和网络中的稳定标识。0 无效，当前战斗内不得复用。
     /// </summary>
     public struct SpellStableId : IComponentData
     {
@@ -19,7 +19,7 @@ namespace RebornFrame.Spell
     }
 
     /// <summary>
-    /// Buff 模拟的 World 状态。请求 ID 和实例 ID 耗尽时失败，不回绕。
+    ///     Buff 模拟的 World 状态。请求 ID 和实例 ID 耗尽时失败，不回绕。
     /// </summary>
     internal struct BuffSimulationState : IComponentData
     {
@@ -167,7 +167,7 @@ namespace RebornFrame.Spell
     }
 
     /// <summary>
-    /// Buff 批次发布的结果。只在事件消费窗口内有效。
+    ///     Buff 批次发布的结果。只在事件消费窗口内有效。
     /// </summary>
     [InternalBufferCapacity(4)]
     public struct BuffResolvedEvent : IBufferElementData

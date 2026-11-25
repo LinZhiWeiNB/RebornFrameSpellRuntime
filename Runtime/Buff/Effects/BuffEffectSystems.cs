@@ -1,15 +1,13 @@
-using System;
 using Unity.Collections;
 using Unity.Entities;
-
 
 namespace RebornFrame.Spell
 {
     /// <summary>效果系统和清理系统共用的单位查找。</summary>
-    static class BuffEffectSystems
+    internal static class BuffEffectSystems
     {
         /// <summary>
-        /// 按稳定 ID 查找单位。
+        ///     按稳定 ID 查找单位。
         /// </summary>
         /// <param name="entityManager">目标 World 的实体管理器。</param>
         /// <param name="stableId">单位稳定 ID。</param>
@@ -20,12 +18,12 @@ namespace RebornFrame.Spell
             ulong stableId,
             out Entity entity)
         {
-            using EntityQuery query =
+            using var query =
                 entityManager.CreateEntityQuery(ComponentType.ReadOnly<SpellStableId>());
-            using NativeArray<Entity> entities = query.ToEntityArray(Allocator.Temp);
-            for (int index = 0; index < entities.Length; index++)
+            using var entities = query.ToEntityArray(Allocator.Temp);
+            for (var index = 0; index < entities.Length; index++)
             {
-                Entity candidate = entities[index];
+                var candidate = entities[index];
                 if (entityManager.GetComponentData<SpellStableId>(candidate).Value == stableId)
                 {
                     entity = candidate;
@@ -38,7 +36,7 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        /// 记录实例向某个单位登记过修改器。
+        ///     记录实例向某个单位登记过修改器。
         /// </summary>
         /// <param name="entityManager">目标 World 的实体管理器。</param>
         /// <param name="entity">Buff 持有者。</param>
@@ -50,26 +48,20 @@ namespace RebornFrame.Spell
             long instanceId,
             ulong targetStableId)
         {
-            if (!entityManager.HasBuffer<BuffOwnedAttributeTarget>(entity))
-            {
-                return;
-            }
+            if (!entityManager.HasBuffer<BuffOwnedAttributeTarget>(entity)) return;
 
-            DynamicBuffer<BuffOwnedAttributeTarget> owned =
+            var owned =
                 entityManager.GetBuffer<BuffOwnedAttributeTarget>(entity);
-            for (int index = 0; index < owned.Length; index++)
+            for (var index = 0; index < owned.Length; index++)
             {
-                BuffOwnedAttributeTarget existing = owned[index];
-                if (existing.InstanceId == instanceId && existing.TargetStableId == targetStableId)
-                {
-                    return;
-                }
+                var existing = owned[index];
+                if (existing.InstanceId == instanceId && existing.TargetStableId == targetStableId) return;
             }
 
             owned.Add(new BuffOwnedAttributeTarget
             {
                 InstanceId = instanceId,
-                TargetStableId = targetStableId,
+                TargetStableId = targetStableId
             });
         }
     }

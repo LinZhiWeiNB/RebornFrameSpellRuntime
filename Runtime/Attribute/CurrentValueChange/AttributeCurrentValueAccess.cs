@@ -4,12 +4,12 @@ using Unity.Entities;
 namespace RebornFrame.Spell
 {
     /// <summary>
-    /// 提交资源当前值变化，并给单位挂上请求缓冲。
+    ///     提交资源当前值变化，并给单位挂上请求缓冲。
     /// </summary>
     internal static class AttributeCurrentValueAccess
     {
         /// <summary>
-        /// 给单位挂上请求序号、待封存请求和本批请求缓冲。
+        ///     给单位挂上请求序号、待封存请求和本批请求缓冲。
         /// </summary>
         /// <param name="entityManager">单位所在 World 的实体管理器。</param>
         /// <param name="entity">待挂载的单位。</param>
@@ -21,7 +21,7 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        /// 提交一条资源当前值变化。原因 Tag 写入待封存集合。
+        ///     提交一条资源当前值变化。原因 Tag 写入待封存集合。
         /// </summary>
         /// <param name="entityManager">单位所在 World 的实体管理器。</param>
         /// <param name="entity">目标单位。</param>
@@ -40,28 +40,24 @@ namespace RebornFrame.Spell
                     entityManager,
                     entity,
                     attributeId,
-                    out AttributeLayoutReference layout,
-                    out int slot)
+                    out var layout,
+                    out var slot)
                 || !entityManager.HasBuffer<PendingAttributeCurrentValueRequest>(entity)
                 || !entityManager.HasBuffer<PendingAttributeRequestTag>(entity)
                 || !entityManager.HasComponent<AttributeRequestEventSequence>(entity)
                 || !AttributeAccess.AreTagsRegistered(entityManager, tags))
-            {
                 return false;
-            }
 
-            AttributeDefinition definition = layout.Value.Value.Entries[slot].Definition;
+            var definition = layout.Value.Value.Entries[slot].Definition;
             if (definition.Behavior != AttributeBehavior.Resource
                 || !WideMath.IsRawValueValid(definition.ValueKind, deltaBits))
-            {
                 return false;
-            }
 
-            DynamicBuffer<PendingAttributeCurrentValueRequest> requests =
+            var requests =
                 entityManager.GetBuffer<PendingAttributeCurrentValueRequest>(entity);
-            AttributeRequestEventSequence sequence =
+            var sequence =
                 entityManager.GetComponentData<AttributeRequestEventSequence>(entity);
-            ulong requestId = sequence.AllocateRequestId();
+            var requestId = sequence.AllocateRequestId();
             entityManager.SetComponentData(entity, sequence);
             requests.Add(new PendingAttributeCurrentValueRequest
             {
@@ -69,24 +65,19 @@ namespace RebornFrame.Spell
                     requestId,
                     attributeId,
                     slot,
-                    deltaBits),
+                    deltaBits)
             });
 
-            if (!tags.IsCreated)
-            {
-                return true;
-            }
+            if (!tags.IsCreated) return true;
 
-            DynamicBuffer<PendingAttributeRequestTag> requestTags =
+            var requestTags =
                 entityManager.GetBuffer<PendingAttributeRequestTag>(entity);
-            for (int index = 0; index < tags.Length; index++)
-            {
+            for (var index = 0; index < tags.Length; index++)
                 AttributeRequestTags.TryAddPending(
                     requestTags,
                     requestId,
                     AttributeRequestTagSet.Reason,
                     tags[index]);
-            }
 
             return true;
         }

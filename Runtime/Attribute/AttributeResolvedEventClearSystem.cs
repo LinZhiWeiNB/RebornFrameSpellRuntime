@@ -4,7 +4,7 @@ using Unity.Entities;
 namespace RebornFrame.Spell
 {
     /// <summary>
-    /// 在只读事件消费窗口结束后清空事件缓冲，使其可以在下一批次复用。
+    ///     在只读事件消费窗口结束后清空事件缓冲，使其可以在下一批次复用。
     /// </summary>
     [BurstCompile]
     [DisableAutoCreation]
@@ -14,7 +14,7 @@ namespace RebornFrame.Spell
     public partial struct AttributeResolvedEventClearSystem : ISystem
     {
         /// <summary>
-        /// 清空所有已经完成消费的属性结算事件。
+        ///     清空所有已经完成消费的属性结算事件。
         /// </summary>
         /// <param name="state">系统状态。</param>
         [BurstCompile]

@@ -6,12 +6,12 @@ using Unity.Entities;
 namespace RebornFrame.Spell
 {
     /// <summary>
-    /// 初始化单位、读取属性并向属性流水线提交命令。
+    ///     初始化单位、读取属性并向属性流水线提交命令。
     /// </summary>
     public static class AttributeAccess
     {
         /// <summary>
-        /// 在 World 中创建冻结属性目录单例。
+        ///     在 World 中创建冻结属性目录单例。
         /// </summary>
         /// <param name="entityManager">目标 World 的实体管理器。</param>
         /// <param name="catalog">冻结属性目录。</param>
@@ -22,25 +22,19 @@ namespace RebornFrame.Spell
             EntityManager entityManager,
             BlobAssetReference<AttributeCatalogBlob> catalog)
         {
-            if (!catalog.IsCreated)
-            {
-                throw new ArgumentException("属性目录尚未创建。", nameof(catalog));
-            }
+            if (!catalog.IsCreated) throw new ArgumentException("属性目录尚未创建。", nameof(catalog));
 
-            using EntityQuery query =
+            using var query =
                 entityManager.CreateEntityQuery(ComponentType.ReadOnly<AttributeCatalogReference>());
-            if (!query.IsEmptyIgnoreFilter)
-            {
-                throw new InvalidOperationException("当前 World 已经存在属性目录。");
-            }
+            if (!query.IsEmptyIgnoreFilter) throw new InvalidOperationException("当前 World 已经存在属性目录。");
 
-            Entity entity = entityManager.CreateEntity();
+            var entity = entityManager.CreateEntity();
             entityManager.AddComponentData(entity, new AttributeCatalogReference { Value = catalog });
             return entity;
         }
 
         /// <summary>
-        /// 在 World 中创建冻结 Tag 目录单例。
+        ///     在 World 中创建冻结 Tag 目录单例。
         /// </summary>
         /// <param name="entityManager">目标 World 的实体管理器。</param>
         /// <param name="catalog">冻结 Tag 目录。</param>
@@ -51,25 +45,19 @@ namespace RebornFrame.Spell
             EntityManager entityManager,
             BlobAssetReference<TagCatalogBlob> catalog)
         {
-            if (!catalog.IsCreated)
-            {
-                throw new ArgumentException("Tag 目录尚未创建。", nameof(catalog));
-            }
+            if (!catalog.IsCreated) throw new ArgumentException("Tag 目录尚未创建。", nameof(catalog));
 
-            using EntityQuery query =
+            using var query =
                 entityManager.CreateEntityQuery(ComponentType.ReadOnly<TagCatalogReference>());
-            if (!query.IsEmptyIgnoreFilter)
-            {
-                throw new InvalidOperationException("当前 World 已经存在 Tag 目录。");
-            }
+            if (!query.IsEmptyIgnoreFilter) throw new InvalidOperationException("当前 World 已经存在 Tag 目录。");
 
-            Entity entity = entityManager.CreateEntity();
+            var entity = entityManager.CreateEntity();
             entityManager.AddComponentData(entity, new TagCatalogReference { Value = catalog });
             return entity;
         }
 
         /// <summary>
-        /// 读取 World 中的冻结 Tag 目录。
+        ///     读取 World 中的冻结 Tag 目录。
         /// </summary>
         /// <param name="entityManager">目标 World 的实体管理器。</param>
         /// <param name="catalog">找到的 Tag 目录。</param>
@@ -78,7 +66,7 @@ namespace RebornFrame.Spell
             EntityManager entityManager,
             out BlobAssetReference<TagCatalogBlob> catalog)
         {
-            using EntityQuery query =
+            using var query =
                 entityManager.CreateEntityQuery(ComponentType.ReadOnly<TagCatalogReference>());
             if (query.CalculateEntityCount() != 1)
             {
@@ -86,7 +74,7 @@ namespace RebornFrame.Spell
                 return false;
             }
 
-            TagCatalogReference reference = query.GetSingleton<TagCatalogReference>();
+            var reference = query.GetSingleton<TagCatalogReference>();
             if (!reference.Value.IsCreated)
             {
                 catalog = default;
@@ -98,8 +86,8 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        /// 根据共享布局初始化一个单位。初始化会一次挂齐流水线所需的缓冲，
-        /// 后续属性批次只清空缓冲长度，不反复进行结构变化。
+        ///     根据共享布局初始化一个单位。初始化会一次挂齐流水线所需的缓冲，
+        ///     后续属性批次只清空缓冲长度，不反复进行结构变化。
         /// </summary>
         /// <param name="entityManager">单位所在 World 的实体管理器。</param>
         /// <param name="entity">待初始化的单位。</param>
@@ -115,8 +103,8 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        /// 根据共享布局初始化单位，并在单位进入属性模拟前覆盖资源当前值。
-        /// 覆盖值会限制到 0 与初始 Max 之间，且不会产生结算事件。
+        ///     根据共享布局初始化单位，并在单位进入属性模拟前覆盖资源当前值。
+        ///     覆盖值会限制到 0 与初始 Max 之间，且不会产生结算事件。
         /// </summary>
         /// <param name="entityManager">单位所在 World 的实体管理器。</param>
         /// <param name="entity">待初始化的单位。</param>
@@ -130,22 +118,14 @@ namespace RebornFrame.Spell
             BlobAssetReference<AttributeLayoutBlob> layout,
             IReadOnlyList<UnitResourceCurrentOverride> currentOverrides)
         {
-            if (!entityManager.Exists(entity))
-            {
-                throw new ArgumentException("单位实体不存在。", nameof(entity));
-            }
+            if (!entityManager.Exists(entity)) throw new ArgumentException("单位实体不存在。", nameof(entity));
 
-            if (!layout.IsCreated)
-            {
-                throw new ArgumentException("单位属性布局尚未创建。", nameof(layout));
-            }
+            if (!layout.IsCreated) throw new ArgumentException("单位属性布局尚未创建。", nameof(layout));
 
             if (entityManager.HasComponent<AttributeLayoutReference>(entity))
-            {
                 throw new InvalidOperationException("单位已经初始化属性。");
-            }
 
-            BlobAssetReference<AttributeCatalogBlob> catalog =
+            var catalog =
                 GetCatalogSingleton(entityManager);
             ValidateLayoutCatalog(layout, catalog);
             ValidateCurrentOverrides(layout, currentOverrides);
@@ -160,13 +140,13 @@ namespace RebornFrame.Spell
             entityManager.AddBuffer<AttributeResolvedEvent>(entity);
             entityManager.AddBuffer<AttributeResolvedEventTag>(entity);
 
-            DynamicBuffer<AttributeValueSlot> values =
+            var values =
                 entityManager.GetBuffer<AttributeValueSlot>(entity);
             values.EnsureCapacity(layout.Value.Entries.Length);
-            for (int index = 0; index < layout.Value.Entries.Length; index++)
+            for (var index = 0; index < layout.Value.Entries.Length; index++)
             {
-                ref AttributeLayoutEntry entry = ref layout.Value.Entries[index];
-                long defaultBits = entry.DefaultBits;
+                ref var entry = ref layout.Value.Entries[index];
+                var defaultBits = entry.DefaultBits;
                 values.Add(new AttributeValueSlot
                 {
                     DefaultBits = defaultBits,
@@ -174,7 +154,7 @@ namespace RebornFrame.Spell
                     CurrentBits = defaultBits,
                     MaxBits = entry.Definition.Behavior == AttributeBehavior.Resource
                         ? defaultBits
-                        : 0,
+                        : 0
                 });
             }
 
@@ -182,7 +162,7 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        /// 查询单位是否拥有指定属性。
+        ///     查询单位是否拥有指定属性。
         /// </summary>
         /// <param name="entityManager">单位所在 World 的实体管理器。</param>
         /// <param name="entity">单位实体。</param>
@@ -197,7 +177,7 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        /// 读取单位的一条属性快照。
+        ///     读取单位的一条属性快照。
         /// </summary>
         /// <param name="entityManager">单位所在 World 的实体管理器。</param>
         /// <param name="entity">单位实体。</param>
@@ -210,14 +190,14 @@ namespace RebornFrame.Spell
             AttributeId id,
             out AttributeSnapshot snapshot)
         {
-            if (!TryResolve(entityManager, entity, id, out AttributeLayoutReference layout, out int slot)
+            if (!TryResolve(entityManager, entity, id, out var layout, out var slot)
                 || !entityManager.HasBuffer<AttributeValueSlot>(entity))
             {
                 snapshot = default;
                 return false;
             }
 
-            DynamicBuffer<AttributeValueSlot> values =
+            var values =
                 entityManager.GetBuffer<AttributeValueSlot>(entity, true);
             if ((uint)slot >= (uint)values.Length)
             {
@@ -225,8 +205,8 @@ namespace RebornFrame.Spell
                 return false;
             }
 
-            AttributeValueSlot value = values[slot];
-            AttributeDefinition definition = layout.Value.Value.Entries[slot].Definition;
+            var value = values[slot];
+            var definition = layout.Value.Value.Entries[slot].Definition;
             snapshot = new AttributeSnapshot(
                 id,
                 definition.ValueKind,
@@ -239,7 +219,7 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        /// 设置某个 Buff 在指定属性通道上的贡献。同一 Buff、属性和通道再次设置会替换旧贡献。
+        ///     设置某个 Buff 在指定属性通道上的贡献。同一 Buff、属性和通道再次设置会替换旧贡献。
         /// </summary>
         /// <param name="entityManager">单位所在 World 的实体管理器。</param>
         /// <param name="entity">目标单位。</param>
@@ -269,7 +249,7 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        /// 查询某个 Buff 对单位上某属性某通道的当前贡献。
+        ///     查询某个 Buff 对单位上某属性某通道的当前贡献。
         /// </summary>
         /// <param name="entityManager">单位所在 World 的实体管理器。</param>
         /// <param name="entity">目标单位。</param>
@@ -299,7 +279,7 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        /// 提交删除某个 Buff 全部修改器的命令。
+        ///     提交删除某个 Buff 全部修改器的命令。
         /// </summary>
         /// <param name="entityManager">单位所在 World 的实体管理器。</param>
         /// <param name="entity">目标单位。</param>
@@ -317,7 +297,7 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        /// 提交资源当前值的一次变化请求。
+        ///     提交资源当前值的一次变化请求。
         /// </summary>
         /// <param name="entityManager">单位所在 World 的实体管理器。</param>
         /// <param name="entity">目标单位。</param>
@@ -339,7 +319,7 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        /// 提交资源当前值的一次变化请求，并附带单个原因 Tag。
+        ///     提交资源当前值的一次变化请求，并附带单个原因 Tag。
         /// </summary>
         /// <param name="entityManager">单位所在 World 的实体管理器。</param>
         /// <param name="entity">目标单位。</param>
@@ -354,9 +334,9 @@ namespace RebornFrame.Spell
             long deltaBits,
             TagId tag)
         {
-            NativeArray<TagId> tags = new NativeArray<TagId>(1, Allocator.Temp);
+            var tags = new NativeArray<TagId>(1, Allocator.Temp);
             tags[0] = tag;
-            bool queued = AttributeCurrentValueAccess.TryRequest(
+            var queued = AttributeCurrentValueAccess.TryRequest(
                 entityManager,
                 entity,
                 attributeId,
@@ -367,7 +347,7 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        /// 提交资源当前值的一次变化请求，并附带任意数量的原因 Tag。
+        ///     提交资源当前值的一次变化请求，并附带任意数量的原因 Tag。
         /// </summary>
         /// <param name="entityManager">单位所在 World 的实体管理器。</param>
         /// <param name="entity">目标单位。</param>
@@ -409,47 +389,36 @@ namespace RebornFrame.Spell
             return AttributeCatalog.TryFindSlot(layout.Value, id, out slot);
         }
 
-        static void ValidateCurrentOverrides(
+        private static void ValidateCurrentOverrides(
             BlobAssetReference<AttributeLayoutBlob> layout,
             IReadOnlyList<UnitResourceCurrentOverride> currentOverrides)
         {
-            if (currentOverrides == null)
-            {
-                return;
-            }
+            if (currentOverrides == null) return;
 
-            for (int index = 0; index < currentOverrides.Count; index++)
+            for (var index = 0; index < currentOverrides.Count; index++)
             {
-                UnitResourceCurrentOverride currentOverride = currentOverrides[index];
-                if (!AttributeCatalog.TryFindSlot(layout, currentOverride.Id, out int slot))
-                {
+                var currentOverride = currentOverrides[index];
+                if (!AttributeCatalog.TryFindSlot(layout, currentOverride.Id, out var slot))
                     throw new ArgumentException(
                         $"初始 Current 覆盖引用了单位未拥有的属性 {currentOverride.Id}。",
                         nameof(currentOverrides));
-                }
 
-                AttributeDefinition definition =
+                var definition =
                     layout.Value.Entries[slot].Definition;
                 if (definition.Behavior != AttributeBehavior.Resource
                     || currentOverride.CurrentValue.Kind != definition.ValueKind
                     || !WideMath.IsRawValueValid(
                         definition.ValueKind,
                         currentOverride.CurrentValue.Raw))
-                {
                     throw new ArgumentException(
                         $"属性 {currentOverride.Id} 的初始 Current 覆盖无效。",
                         nameof(currentOverrides));
-                }
 
-                for (int previous = 0; previous < index; previous++)
-                {
+                for (var previous = 0; previous < index; previous++)
                     if (currentOverrides[previous].Id == currentOverride.Id)
-                    {
                         throw new ArgumentException(
                             $"初始 Current 重复覆盖属性 {currentOverride.Id}。",
                             nameof(currentOverrides));
-                    }
-                }
             }
         }
 
@@ -457,87 +426,69 @@ namespace RebornFrame.Spell
             EntityManager entityManager,
             NativeArray<TagId> tags)
         {
-            if (!tags.IsCreated || tags.Length == 0)
-            {
-                return true;
-            }
+            if (!tags.IsCreated || tags.Length == 0) return true;
 
-            if (!TryGetTagCatalog(entityManager, out BlobAssetReference<TagCatalogBlob> catalog))
-            {
-                return false;
-            }
+            if (!TryGetTagCatalog(entityManager, out var catalog)) return false;
 
-            for (int index = 0; index < tags.Length; index++)
+            for (var index = 0; index < tags.Length; index++)
             {
-                TagId tag = tags[index];
+                var tag = tags[index];
                 if (tag == LibraryTags.None
                     || !TagCatalog.TryFindDefinition(catalog, tag, out _))
-                {
                     return false;
-                }
             }
 
             return true;
         }
 
-        static BlobAssetReference<AttributeCatalogBlob> GetCatalogSingleton(
+        private static BlobAssetReference<AttributeCatalogBlob> GetCatalogSingleton(
             EntityManager entityManager)
         {
-            using EntityQuery query =
+            using var query =
                 entityManager.CreateEntityQuery(ComponentType.ReadOnly<AttributeCatalogReference>());
             if (query.CalculateEntityCount() != 1)
-            {
                 throw new InvalidOperationException(
                     "初始化单位前必须在 World 中创建唯一属性目录。");
-            }
 
-            AttributeCatalogReference reference =
+            var reference =
                 query.GetSingleton<AttributeCatalogReference>();
-            if (!reference.Value.IsCreated)
-            {
-                throw new InvalidOperationException("World 属性目录尚未创建。");
-            }
+            if (!reference.Value.IsCreated) throw new InvalidOperationException("World 属性目录尚未创建。");
 
             return reference.Value;
         }
 
-        static void ValidateLayoutCatalog(
+        private static void ValidateLayoutCatalog(
             BlobAssetReference<AttributeLayoutBlob> layout,
             BlobAssetReference<AttributeCatalogBlob> catalog)
         {
-            ref BlobArray<AttributeDefinition> definitions =
+            ref var definitions =
                 ref catalog.Value.Definitions;
-            for (int index = 0; index < layout.Value.Entries.Length; index++)
+            for (var index = 0; index < layout.Value.Entries.Length; index++)
             {
-                AttributeLayoutEntry entry = layout.Value.Entries[index];
+                var entry = layout.Value.Entries[index];
                 if ((uint)entry.DefinitionIndex >= (uint)definitions.Length
                     || !definitions[entry.DefinitionIndex].Equals(entry.Definition))
-                {
                     throw new ArgumentException(
                         "单位布局不属于当前 World 的属性目录。",
                         nameof(layout));
-                }
             }
         }
 
-        static void ApplyCurrentOverrides(
+        private static void ApplyCurrentOverrides(
             BlobAssetReference<AttributeLayoutBlob> layout,
             IReadOnlyList<UnitResourceCurrentOverride> currentOverrides,
             DynamicBuffer<AttributeValueSlot> values)
         {
-            if (currentOverrides == null)
-            {
-                return;
-            }
+            if (currentOverrides == null) return;
 
-            for (int index = 0; index < currentOverrides.Count; index++)
+            for (var index = 0; index < currentOverrides.Count; index++)
             {
-                UnitResourceCurrentOverride currentOverride = currentOverrides[index];
-                AttributeCatalog.TryFindSlot(layout, currentOverride.Id, out int slot);
-                AttributeDefinition definition =
+                var currentOverride = currentOverrides[index];
+                AttributeCatalog.TryFindSlot(layout, currentOverride.Id, out var slot);
+                var definition =
                     layout.Value.Entries[slot].Definition;
-                ref AttributeValueSlot value = ref values.ElementAt(slot);
-                long current = WideMath.Normalize(
+                ref var value = ref values.ElementAt(slot);
+                var current = WideMath.Normalize(
                     definition.ValueKind,
                     currentOverride.CurrentValue.Raw,
                     true);

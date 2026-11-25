@@ -1,7 +1,7 @@
 {
   "name": "reborn.spell",
   "rootNamespace": "RebornFrame.Spell",
-    "references": [
+  "references": [
     "Unity.Entities",
     "Unity.Collections",
     "Unity.Burst",

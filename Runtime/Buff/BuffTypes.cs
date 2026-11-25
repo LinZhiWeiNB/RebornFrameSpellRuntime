@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using Google.Protobuf;
 
@@ -17,7 +16,7 @@ namespace RebornFrame.Spell
         Duration = 2,
 
         /// <summary>一直存在，直到显式销毁或被替换。</summary>
-        Infinite = 3,
+        Infinite = 3
     }
 
     /// <summary>同一目标上复用已有实例的身份规则。</summary>
@@ -30,7 +29,7 @@ namespace RebornFrame.Spell
         PerTarget = 1,
 
         /// <summary>同一目标且同一来源才合并。</summary>
-        PerTargetAndSource = 2,
+        PerTargetAndSource = 2
     }
 
     /// <summary>达到叠层上限后的行为。</summary>
@@ -43,7 +42,7 @@ namespace RebornFrame.Spell
         Reject = 1,
 
         /// <summary>不增加层数，只刷新剩余步数。</summary>
-        RefreshDuration = 2,
+        RefreshDuration = 2
     }
 
     /// <summary>多层剩余步数的记录方式。</summary>
@@ -56,7 +55,7 @@ namespace RebornFrame.Spell
         Shared = 1,
 
         /// <summary>每一层单独记录剩余步数。</summary>
-        PerLayer = 2,
+        PerLayer = 2
     }
 
     /// <summary>加层时如何处理已有剩余步数。</summary>
@@ -69,7 +68,7 @@ namespace RebornFrame.Spell
         KeepRemain = 1,
 
         /// <summary>把全部层的剩余步数重置为定义步数。</summary>
-        RefreshAll = 2,
+        RefreshAll = 2
     }
 
     /// <summary>加层时如何处理周期计数。</summary>
@@ -82,7 +81,7 @@ namespace RebornFrame.Spell
         Keep = 1,
 
         /// <summary>把周期剩余步数重置为间隔。</summary>
-        Reset = 2,
+        Reset = 2
     }
 
     /// <summary>定义阶段把时钟作用域解析成具体稳定 ID 的方式。</summary>
@@ -95,7 +94,7 @@ namespace RebornFrame.Spell
         Target = 1,
 
         /// <summary>使用来源单位的稳定 ID。</summary>
-        Source = 2,
+        Source = 2
     }
 
     /// <summary>一组 Tag 条件的组合方式。</summary>
@@ -111,7 +110,7 @@ namespace RebornFrame.Spell
         Any = 2,
 
         /// <summary>不得命中其中任何一个 Tag。</summary>
-        NotAny = 3,
+        NotAny = 3
     }
 
     /// <summary>实例更新事件和更新效果的原因。</summary>
@@ -130,7 +129,7 @@ namespace RebornFrame.Spell
         Refreshed = 3,
 
         /// <summary>剩余步数减少后实例仍然存在。</summary>
-        RemainChanged = 4,
+        RemainChanged = 4
     }
 
     /// <summary>实例结束的原因。</summary>
@@ -155,7 +154,7 @@ namespace RebornFrame.Spell
         OwnerDestroyed = 5,
 
         /// <summary>来源消失。</summary>
-        SourceLost = 6,
+        SourceLost = 6
     }
 
     /// <summary>效果请求所处的生命周期阶段。</summary>
@@ -174,7 +173,7 @@ namespace RebornFrame.Spell
         Remove = 3,
 
         /// <summary>周期或外部信号触发。</summary>
-        Trigger = 4,
+        Trigger = 4
     }
 
     /// <summary>一次 Buff 批次发布的结果种类。</summary>
@@ -196,7 +195,7 @@ namespace RebornFrame.Spell
         RemoveApplied = 5,
 
         /// <summary>销毁请求被拒绝。</summary>
-        RemoveRejected = 6,
+        RemoveRejected = 6
     }
 
     /// <summary>Gameplay Tag 贡献的来源。</summary>
@@ -206,11 +205,11 @@ namespace RebornFrame.Spell
         Intrinsic = 1,
 
         /// <summary>某个 Buff 实例授予的 Tag。</summary>
-        Buff = 2,
+        Buff = 2
     }
 
     /// <summary>
-    /// 构建目录时使用的一条效果。载荷是已经解析的 protobuf 消息。
+    ///     构建目录时使用的一条效果。载荷是已经解析的 protobuf 消息。
     /// </summary>
     public struct BuffEffectAuthoring
     {
@@ -260,33 +259,27 @@ namespace RebornFrame.Spell
     }
 
     /// <summary>
-    /// 构建 Buff 目录的托管描述。只在建目录时使用，不进入模拟热路径。
+    ///     构建 Buff 目录的托管描述。只在建目录时使用，不进入模拟热路径。
     /// </summary>
     public sealed class BuffDefinitionData
     {
-        /// <summary>Buff 定义标识。</summary>
-        public BuffId Id;
+        /// <summary>创建效果。</summary>
+        public List<BuffEffectAuthoring> CreateEffects = new();
 
-        /// <summary>时长策略。</summary>
-        public BuffDurationPolicy DurationPolicy;
-
-        /// <summary>叠层身份。</summary>
-        public BuffStackIdentity Identity;
-
-        /// <summary>叠层上限。瞬时 Buff 必须为 0。</summary>
-        public int MaxStacks;
-
-        /// <summary>达到上限后的行为。</summary>
-        public BuffStackOverflow Overflow;
+        /// <summary>持续时间时钟种类。</summary>
+        public BuffIteratorId DurationIterator;
 
         /// <summary>剩余步数是共用还是按层记录。</summary>
         public BuffDurationMode DurationMode;
 
-        /// <summary>加层时的刷新策略。</summary>
-        public BuffRefreshPolicy RefreshPolicy;
+        /// <summary>时长策略。</summary>
+        public BuffDurationPolicy DurationPolicy;
 
-        /// <summary>加层时的周期重置策略。</summary>
-        public BuffPeriodResetPolicy PeriodReset;
+        /// <summary>持续时间时钟的作用域。</summary>
+        public BuffClockScope DurationScope;
+
+        /// <summary>持续步数。</summary>
+        public int DurationSteps;
 
         /// <summary>互斥组。None 表示不互斥。</summary>
         public TagId ExclusiveGroup;
@@ -294,42 +287,46 @@ namespace RebornFrame.Spell
         /// <summary>互斥优先级，数值更大者胜出。</summary>
         public int ExclusivePriority;
 
-        /// <summary>持续时间时钟的作用域。</summary>
-        public BuffClockScope DurationScope;
+        /// <summary>实例创建后授予的 Tag。</summary>
+        public List<TagId> GrantedTags = new();
 
-        /// <summary>持续时间时钟种类。</summary>
-        public BuffIteratorId DurationIterator;
+        /// <summary>Buff 定义标识。</summary>
+        public BuffId Id;
 
-        /// <summary>持续步数。</summary>
-        public int DurationSteps;
+        /// <summary>叠层身份。</summary>
+        public BuffStackIdentity Identity;
+
+        /// <summary>免疫 Tag。命中任意一个则拒绝创建。</summary>
+        public List<TagId> ImmunityTags = new();
+
+        /// <summary>叠层上限。瞬时 Buff 必须为 0。</summary>
+        public int MaxStacks;
+
+        /// <summary>达到上限后的行为。</summary>
+        public BuffStackOverflow Overflow;
+
+        /// <summary>周期触发器。</summary>
+        public List<BuffPeriodicTriggerAuthoring> PeriodicTriggers = new();
+
+        /// <summary>加层时的周期重置策略。</summary>
+        public BuffPeriodResetPolicy PeriodReset;
+
+        /// <summary>加层时的刷新策略。</summary>
+        public BuffRefreshPolicy RefreshPolicy;
+
+        /// <summary>结束效果。</summary>
+        public List<BuffEffectAuthoring> RemoveEffects = new();
+
+        /// <summary>施加所需 Tag。</summary>
+        public List<TagId> RequiredTags = new();
 
         /// <summary>施加条件的组合方式。</summary>
         public BuffTagQuery Requirement;
 
-        /// <summary>施加所需 Tag。</summary>
-        public List<TagId> RequiredTags = new List<TagId>();
-
-        /// <summary>免疫 Tag。命中任意一个则拒绝创建。</summary>
-        public List<TagId> ImmunityTags = new List<TagId>();
-
-        /// <summary>实例创建后授予的 Tag。</summary>
-        public List<TagId> GrantedTags = new List<TagId>();
-
-        /// <summary>创建效果。</summary>
-        public List<BuffEffectAuthoring> CreateEffects = new List<BuffEffectAuthoring>();
+        /// <summary>外部信号触发器。</summary>
+        public List<BuffSignalTriggerAuthoring> SignalTriggers = new();
 
         /// <summary>更新效果。</summary>
-        public List<BuffEffectAuthoring> UpdateEffects = new List<BuffEffectAuthoring>();
-
-        /// <summary>结束效果。</summary>
-        public List<BuffEffectAuthoring> RemoveEffects = new List<BuffEffectAuthoring>();
-
-        /// <summary>周期触发器。</summary>
-        public List<BuffPeriodicTriggerAuthoring> PeriodicTriggers =
-            new List<BuffPeriodicTriggerAuthoring>();
-
-        /// <summary>外部信号触发器。</summary>
-        public List<BuffSignalTriggerAuthoring> SignalTriggers =
-            new List<BuffSignalTriggerAuthoring>();
+        public List<BuffEffectAuthoring> UpdateEffects = new();
     }
 }
