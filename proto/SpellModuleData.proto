@@ -9,9 +9,35 @@ message SpellModuleData {
   repeated SpellData spells = 3;
 }
 
-// 一条法术。完整法术还没定，目前只包含它持有的 Buff。
+// 一条法术。buffs 是它名下的 Buff。id 为 0 时只贡献这些 Buff，不注册法术。
 message SpellData {
   repeated BuffDefinitionConfig buffs = 1;
+  uint64 id = 2;
+  // SpellActivation：1 Active，2 Passive。
+  int32 activation = 3;
+  int32 duration_frames = 4;
+  int32 cooldown_frames = 5;
+  // BuffTagQuery：1 All，2 Any，3 NotAny。没有准入 Tag 时为 0。
+  int32 admission = 6;
+  repeated uint64 admission_tags = 7;
+  repeated SpellEventConfig events = 8;
+  // trigger 为 0 表示没有结束事件。
+  SpellEventConfig end_event = 9;
+}
+
+// 时间轴上的一条事件。触发后先看持有者条件，再拾取目标，然后提交 Buff。
+message SpellEventConfig {
+  // SpellEventTrigger：1 OnStart，2 Frame，3 EveryFrames，4 Signal，5 OnEnd。
+  int32 trigger = 1;
+  int32 frame = 2;
+  uint64 signal_id = 3;
+  int32 cooldown_frames = 4;
+  int32 condition = 5;
+  repeated uint64 condition_tags = 6;
+  int32 target_filter = 7;
+  repeated uint64 target_filter_tags = 8;
+  uint64 pick = 9;
+  repeated uint64 buff_ids = 10;
 }
 
 // 自定义属性。默认值属于单位预设，不写在这里。

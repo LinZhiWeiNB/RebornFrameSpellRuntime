@@ -136,7 +136,10 @@ namespace RebornFrame.Spell.Tests
         {
             _buffs?.Dispose();
             _attributes?.Dispose();
-            _world?.Dispose();
+            if (_world is { IsCreated: true }) _world.Dispose();
+            _buffs = null;
+            _attributes = null;
+            _world = null;
             Dispose(ref _catalog);
             Dispose(ref _attributesCatalog);
             Dispose(ref _layout);

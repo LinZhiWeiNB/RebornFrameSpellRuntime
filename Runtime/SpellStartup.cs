@@ -10,8 +10,8 @@ namespace RebornFrame.Spell
     ///     相同定义保留一份，同一 ID 的冲突定义会失败。
     /// </summary>
     /// <remarks>
-    ///     <see cref="Start" /> 不接收 Blob。它冻结已加入的定义，创建 Tag、属性和 Buff
-    ///     目录单例，并装配两条流水线。Blob 由本对象持有，<see cref="Dispose" /> 时释放。
+    ///     <see cref="Start" /> 不接收 Blob。它冻结已加入的定义，创建 Tag、属性、Buff 和法术
+    ///     目录单例，并装配三条流水线。Blob 由本对象持有，<see cref="Dispose" /> 时释放。
     ///     World 仍由调用方持有。
     /// </remarks>
     public sealed class SpellStartup : IDisposable
@@ -19,12 +19,15 @@ namespace RebornFrame.Spell
         private readonly List<AttributeDefinition> _attributes = new();
         private readonly List<BuffDefinitionData> _buffs = new();
         private readonly List<UnitAttributePresetEntry> _layout = new();
+        private readonly List<SpellDefinitionData> _spells = new();
         private readonly List<TagDefinition> _tags = new();
         private BlobAssetReference<AttributeCatalogBlob> _attributeCatalog;
         private BlobAssetReference<AttributeLayoutBlob> _attributeLayout;
         private AttributePipeline _attributePipeline;
         private BlobAssetReference<BuffCatalogBlob> _buffCatalog;
         private BuffPipeline _buffPipeline;
+        private BlobAssetReference<SpellCatalogBlob> _spellCatalog;
+        private SpellPipeline _spellPipeline;
         private bool _disposed;
         private bool _started;
         private BlobAssetReference<TagCatalogBlob> _tagCatalog;
@@ -39,10 +42,13 @@ namespace RebornFrame.Spell
             if (_disposed) return;
 
             _disposed = true;
+            _spellPipeline?.Dispose();
             _buffPipeline?.Dispose();
             _attributePipeline?.Dispose();
+            _spellPipeline = null;
             _buffPipeline = null;
             _attributePipeline = null;
+            Dispose(ref _spellCatalog);
             Dispose(ref _buffCatalog);
             Dispose(ref _attributeLayout);
             Dispose(ref _attributeCatalog);
@@ -112,6 +118,26 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
+        ///     追加一批法术定义。可以多次调用，内容一致的定义会在启动时合并。
+        /// </summary>
+        /// <param name="definitions">待加入的法术定义。</param>
+        /// <exception cref="ArgumentNullException">定义列表为 null。</exception>
+        /// <exception cref="ArgumentException">列表中含有 null 定义。</exception>
+        /// <exception cref="InvalidOperationException">已经启动或已经释放。</exception>
+        public void AddSpells(IReadOnlyList<SpellDefinitionData> definitions)
+        {
+            ThrowIfClosed();
+            if (definitions == null) throw new ArgumentNullException(nameof(definitions));
+
+            for (var index = 0; index < definitions.Count; index++)
+            {
+                if (definitions[index] == null) throw new ArgumentException("法术定义不能为 null。", nameof(definitions));
+
+                _spells.Add(definitions[index]);
+            }
+        }
+
+        /// <summary>
         ///     合并一份法术模块数据。项目可以多次调用，把不同开发者的数据加进来。
         /// </summary>
         /// <param name="data">法术模块数据。</param>
@@ -126,9 +152,11 @@ namespace RebornFrame.Spell
             var tags = SpellModuleDataImport.Tags(data);
             var attributes = SpellModuleDataImport.Attributes(data);
             var buffs = SpellModuleDataImport.Buffs(data);
+            var spells = SpellModuleDataImport.Spells(data);
             AddTags(tags);
             AddAttributes(attributes);
             AddBuffs(buffs);
+            AddSpells(spells);
         }
 
         /// <summary>
@@ -147,7 +175,7 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        ///     冻结已加入的目录，创建三个目录单例，并装配属性和 Buff 流水线。
+        ///     冻结已加入的目录，创建目录单例，并装配法术、属性和 Buff 流水线。
         /// </summary>
         /// <param name="world">承载本场战斗的有效 World。</param>
         /// <exception cref="ArgumentNullException">World 为 null。</exception>
@@ -166,37 +194,46 @@ namespace RebornFrame.Spell
             BlobAssetReference<AttributeCatalogBlob> attributes = default;
             BlobAssetReference<AttributeLayoutBlob> layout = default;
             BlobAssetReference<BuffCatalogBlob> buffs = default;
+            BlobAssetReference<SpellCatalogBlob> spells = default;
             var tagEntity = Entity.Null;
             var attributeEntity = Entity.Null;
             var buffEntity = Entity.Null;
+            var spellEntity = Entity.Null;
             AttributePipeline attributePipeline = null;
             BuffPipeline buffPipeline = null;
+            SpellPipeline spellPipeline = null;
             try
             {
                 tags = TagCatalog.Build(_tags, Allocator.Persistent);
                 attributes = AttributeCatalog.Build(_attributes, Allocator.Persistent);
                 layout = AttributeCatalog.BuildLayout(attributes, MergeLayout(), Allocator.Persistent);
                 buffs = BuffCatalog.Build(_buffs, Allocator.Persistent, out var runtimeEffects);
+                spells = SpellCatalog.Build(_spells, KnownBuffIds(), Allocator.Persistent);
 
                 var entityManager = world.EntityManager;
                 tagEntity = AttributeAccess.CreateTagCatalogSingleton(entityManager, tags);
                 attributeEntity = AttributeAccess.CreateCatalogSingleton(entityManager, attributes);
                 buffEntity = BuffAccess.CreateCatalogSingleton(entityManager, buffs, runtimeEffects);
+                spellEntity = SpellAccess.CreateCatalogSingleton(entityManager, spells);
                 attributePipeline = AttributePipeline.Create(world);
                 buffPipeline = BuffPipeline.Create(world);
+                spellPipeline = SpellPipeline.Create(world);
             }
             catch
             {
+                spellPipeline?.Dispose();
                 buffPipeline?.Dispose();
                 attributePipeline?.Dispose();
                 if (world.IsCreated)
                 {
                     var entityManager = world.EntityManager;
+                    DestroyIfExists(entityManager, spellEntity);
                     DestroyIfExists(entityManager, buffEntity);
                     DestroyIfExists(entityManager, attributeEntity);
                     DestroyIfExists(entityManager, tagEntity);
                 }
 
+                Dispose(ref spells);
                 Dispose(ref buffs);
                 Dispose(ref layout);
                 Dispose(ref attributes);
@@ -209,19 +246,22 @@ namespace RebornFrame.Spell
             _attributeCatalog = attributes;
             _attributeLayout = layout;
             _buffCatalog = buffs;
+            _spellCatalog = spells;
             _attributePipeline = attributePipeline;
             _buffPipeline = buffPipeline;
+            _spellPipeline = spellPipeline;
             _started = true;
         }
 
         /// <summary>
-        ///     推进一个逻辑 tick：先处理 Buff 的创建、信号和步进，再结算属性，最后处理 Buff 销毁、清理和清空。
+        ///     推进一个逻辑 tick：先推进法术时间轴，再处理 Buff 的创建、信号和步进，然后结算属性，最后收尾 Buff。
         /// </summary>
         /// <param name="logicTick">当前逻辑 tick，必须大于等于 0。</param>
         /// <exception cref="InvalidOperationException">尚未启动或已经释放。</exception>
         public void Tick(int logicTick)
         {
             ThrowIfNotStarted();
+            _spellPipeline.Update(logicTick);
             _buffPipeline.BeginUpdate(logicTick);
             _attributePipeline.UpdateOnce();
             _buffPipeline.CompleteAfterAttributes();
@@ -254,6 +294,7 @@ namespace RebornFrame.Spell
             var entityManager = _world.EntityManager;
             AttributeAccess.InitializeUnit(entityManager, entity, _attributeLayout, currentOverrides);
             BuffAccess.InitializeUnit(entityManager, entity, stableId);
+            SpellAccess.InitializeUnit(entityManager, entity);
         }
 
         private void ThrowIfClosed()
@@ -268,6 +309,14 @@ namespace RebornFrame.Spell
             if (_disposed) throw new ObjectDisposedException(nameof(SpellStartup));
 
             if (!_started) throw new InvalidOperationException("Spell 尚未启动。");
+        }
+
+        private List<BuffId> KnownBuffIds()
+        {
+            var ids = new List<BuffId>(_buffs.Count);
+            for (var index = 0; index < _buffs.Count; index++) ids.Add(_buffs[index].Id);
+
+            return ids;
         }
 
         private List<UnitAttributePresetEntry> MergeLayout()
