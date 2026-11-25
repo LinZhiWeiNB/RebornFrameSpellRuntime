@@ -4,7 +4,7 @@ using Unity.Entities;
 namespace RebornFrame.Spell
 {
     /// <summary>
-    /// 请求上的 Tag 集合类型。
+    ///     请求上的 Tag 集合类型。
     /// </summary>
     public enum AttributeRequestTagSet : byte
     {
@@ -12,16 +12,16 @@ namespace RebornFrame.Spell
         Reason = 0,
 
         /// <summary>取消协商列表；非空则跳过写值。</summary>
-        Cancel = 1,
+        Cancel = 1
     }
 
     /// <summary>
-    /// 挂在单位上的一条请求 Tag。按单位内稳定 RequestId 关联。
+    ///     挂在单位上的一条请求 Tag。按单位内稳定 RequestId 关联。
     /// </summary>
     [InternalBufferCapacity(8)]
     public struct AttributeRequestTag : IBufferElementData
     {
-        /// <summary>对应 <see cref="AttributeCurrentValueRequest"/> 的单位内 ID。</summary>
+        /// <summary>对应 <see cref="AttributeCurrentValueRequest" /> 的单位内 ID。</summary>
         public ulong RequestId;
 
         /// <summary>原因或取消集合。</summary>
@@ -39,12 +39,12 @@ namespace RebornFrame.Spell
     }
 
     /// <summary>
-    /// 属性结算事件上的一条 Tag。按单位内稳定 EventId 关联。
+    ///     属性结算事件上的一条 Tag。按单位内稳定 EventId 关联。
     /// </summary>
     [InternalBufferCapacity(8)]
     public struct AttributeResolvedEventTag : IBufferElementData
     {
-        /// <summary>对应 <see cref="AttributeResolvedEvent"/> 的单位内 ID。</summary>
+        /// <summary>对应 <see cref="AttributeResolvedEvent" /> 的单位内 ID。</summary>
         public ulong EventId;
 
         /// <summary>该 Tag 来自请求的原因集合还是取消集合。</summary>
@@ -55,12 +55,12 @@ namespace RebornFrame.Spell
     }
 
     /// <summary>
-    /// 请求 Tag 缓冲的增删查。集合长度由 DynamicBuffer 增长，没有固定上限。
+    ///     请求 Tag 缓冲的增删查。集合长度由 DynamicBuffer 增长，没有固定上限。
     /// </summary>
     public static class AttributeRequestTags
     {
         /// <summary>
-        /// 判断指定请求的集合是否包含该 Tag（精确匹配）。
+        ///     判断指定请求的集合是否包含该 Tag（精确匹配）。
         /// </summary>
         /// <param name="tags">当前批次的请求 Tag 缓冲。</param>
         /// <param name="requestId">单位内请求 ID。</param>
@@ -74,27 +74,22 @@ namespace RebornFrame.Spell
             AttributeRequestTagSet set,
             TagId tag)
         {
-            if (requestId == 0 || tag == LibraryTags.None)
-            {
-                return false;
-            }
+            if (requestId == 0 || tag == LibraryTags.None) return false;
 
-            for (int index = 0; index < tags.Length; index++)
+            for (var index = 0; index < tags.Length; index++)
             {
-                AttributeRequestTag element = tags[index];
+                var element = tags[index];
                 if (element.RequestId == requestId
                     && element.Set == set
                     && element.Tag == tag)
-                {
                     return true;
-                }
             }
 
             return false;
         }
 
         /// <summary>
-        /// 判断指定请求的集合是否为空。
+        ///     判断指定请求的集合是否为空。
         /// </summary>
         /// <param name="tags">当前批次的请求 Tag 缓冲。</param>
         /// <param name="requestId">单位内请求 ID。</param>
@@ -105,25 +100,19 @@ namespace RebornFrame.Spell
             ulong requestId,
             AttributeRequestTagSet set)
         {
-            if (requestId == 0)
-            {
-                return true;
-            }
+            if (requestId == 0) return true;
 
-            for (int index = 0; index < tags.Length; index++)
+            for (var index = 0; index < tags.Length; index++)
             {
-                AttributeRequestTag element = tags[index];
-                if (element.RequestId == requestId && element.Set == set)
-                {
-                    return false;
-                }
+                var element = tags[index];
+                if (element.RequestId == requestId && element.Set == set) return false;
             }
 
             return true;
         }
 
         /// <summary>
-        /// GAS 风格匹配：集合中存在该 Tag，或存在它的子孙。
+        ///     GAS 风格匹配：集合中存在该 Tag，或存在它的子孙。
         /// </summary>
         /// <param name="tags">当前批次的请求 Tag 缓冲。</param>
         /// <param name="requestId">单位内请求 ID。</param>
@@ -138,35 +127,23 @@ namespace RebornFrame.Spell
             TagId tag,
             BlobAssetReference<TagCatalogBlob> catalog)
         {
-            if (requestId == 0 || tag == LibraryTags.None || !catalog.IsCreated)
-            {
-                return false;
-            }
+            if (requestId == 0 || tag == LibraryTags.None || !catalog.IsCreated) return false;
 
-            if (Contains(tags, requestId, set, tag))
-            {
-                return true;
-            }
+            if (Contains(tags, requestId, set, tag)) return true;
 
-            for (int index = 0; index < tags.Length; index++)
+            for (var index = 0; index < tags.Length; index++)
             {
-                AttributeRequestTag element = tags[index];
-                if (element.RequestId != requestId || element.Set != set)
-                {
-                    continue;
-                }
+                var element = tags[index];
+                if (element.RequestId != requestId || element.Set != set) continue;
 
-                if (IsDescendantOf(element.Tag, tag, catalog))
-                {
-                    return true;
-                }
+                if (IsDescendantOf(element.Tag, tag, catalog)) return true;
             }
 
             return false;
         }
 
         /// <summary>
-        /// 向指定请求的集合加入 Tag。已存在时视为成功。
+        ///     向指定请求的集合加入 Tag。已存在时视为成功。
         /// </summary>
         /// <param name="tags">当前批次的请求 Tag 缓冲。</param>
         /// <param name="requestId">单位内请求 ID。</param>
@@ -179,27 +156,21 @@ namespace RebornFrame.Spell
             AttributeRequestTagSet set,
             TagId tag)
         {
-            if (requestId == 0 || tag == LibraryTags.None)
-            {
-                return false;
-            }
+            if (requestId == 0 || tag == LibraryTags.None) return false;
 
-            if (Contains(tags, requestId, set, tag))
-            {
-                return true;
-            }
+            if (Contains(tags, requestId, set, tag)) return true;
 
             tags.Add(new AttributeRequestTag
             {
                 RequestId = requestId,
                 Set = set,
-                Tag = tag,
+                Tag = tag
             });
             return true;
         }
 
         /// <summary>
-        /// 从指定请求的集合移除 Tag。
+        ///     从指定请求的集合移除 Tag。
         /// </summary>
         /// <param name="tags">当前批次的请求 Tag 缓冲。</param>
         /// <param name="requestId">单位内请求 ID。</param>
@@ -212,20 +183,15 @@ namespace RebornFrame.Spell
             AttributeRequestTagSet set,
             TagId tag)
         {
-            if (requestId == 0)
-            {
-                return false;
-            }
+            if (requestId == 0) return false;
 
-            for (int index = tags.Length - 1; index >= 0; index--)
+            for (var index = tags.Length - 1; index >= 0; index--)
             {
-                AttributeRequestTag element = tags[index];
+                var element = tags[index];
                 if (element.RequestId != requestId
                     || element.Set != set
                     || element.Tag != tag)
-                {
                     continue;
-                }
 
                 tags.RemoveAt(index);
                 return true;
@@ -235,7 +201,7 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        /// 判断结算事件的指定集合是否带有该 Tag。
+        ///     判断结算事件的指定集合是否带有该 Tag。
         /// </summary>
         /// <param name="tags">事件 Tag 缓冲。</param>
         /// <param name="eventId">单位内事件 ID。</param>
@@ -248,27 +214,22 @@ namespace RebornFrame.Spell
             AttributeRequestTagSet set,
             TagId tag)
         {
-            if (eventId == 0 || tag == LibraryTags.None)
-            {
-                return false;
-            }
+            if (eventId == 0 || tag == LibraryTags.None) return false;
 
-            for (int index = 0; index < tags.Length; index++)
+            for (var index = 0; index < tags.Length; index++)
             {
-                AttributeResolvedEventTag element = tags[index];
+                var element = tags[index];
                 if (element.EventId == eventId
                     && element.Set == set
                     && element.Tag == tag)
-                {
                     return true;
-                }
             }
 
             return false;
         }
 
         /// <summary>
-        /// 向等待封存的请求追加 Tag，并按 RequestId 去重。
+        ///     向等待封存的请求追加 Tag，并按 RequestId 去重。
         /// </summary>
         /// <param name="tags">Pending Tag 缓冲。</param>
         /// <param name="requestId">单位内请求 ID。</param>
@@ -281,20 +242,15 @@ namespace RebornFrame.Spell
             AttributeRequestTagSet set,
             TagId tag)
         {
-            if (requestId == 0 || tag == LibraryTags.None)
-            {
-                return false;
-            }
+            if (requestId == 0 || tag == LibraryTags.None) return false;
 
-            for (int index = 0; index < tags.Length; index++)
+            for (var index = 0; index < tags.Length; index++)
             {
-                AttributeRequestTag element = tags[index].Value;
+                var element = tags[index].Value;
                 if (element.RequestId == requestId
                     && element.Set == set
                     && element.Tag == tag)
-                {
                     return true;
-                }
             }
 
             tags.Add(new PendingAttributeRequestTag
@@ -303,14 +259,14 @@ namespace RebornFrame.Spell
                 {
                     RequestId = requestId,
                     Set = set,
-                    Tag = tag,
-                },
+                    Tag = tag
+                }
             });
             return true;
         }
 
         /// <summary>
-        /// 将指定请求监听结束后的 Reason 与 Cancel Tag 全量快照到结算事件。
+        ///     将指定请求监听结束后的 Reason 与 Cancel Tag 全量快照到结算事件。
         /// </summary>
         /// <param name="requestTags">当前批次请求 Tag。</param>
         /// <param name="requestId">来源请求 ID。</param>
@@ -322,25 +278,22 @@ namespace RebornFrame.Spell
             DynamicBuffer<AttributeResolvedEventTag> eventTags,
             ulong eventId)
         {
-            for (int index = 0; index < requestTags.Length; index++)
+            for (var index = 0; index < requestTags.Length; index++)
             {
-                AttributeRequestTag element = requestTags[index];
-                if (element.RequestId != requestId)
-                {
-                    continue;
-                }
+                var element = requestTags[index];
+                if (element.RequestId != requestId) continue;
 
                 eventTags.Add(new AttributeResolvedEventTag
                 {
                     EventId = eventId,
                     Set = element.Set,
-                    Tag = element.Tag,
+                    Tag = element.Tag
                 });
             }
         }
 
         /// <summary>
-        /// 为修改器重算事件写入库保留的 Recalculation 原因 Tag。
+        ///     为修改器重算事件写入库保留的 Recalculation 原因 Tag。
         /// </summary>
         /// <param name="eventTags">结算事件 Tag 缓冲。</param>
         /// <param name="eventId">重算事件 ID。</param>
@@ -352,28 +305,23 @@ namespace RebornFrame.Spell
             {
                 EventId = eventId,
                 Set = AttributeRequestTagSet.Reason,
-                Tag = LibraryTags.Recalculation,
+                Tag = LibraryTags.Recalculation
             });
         }
 
-        static bool IsDescendantOf(
+        private static bool IsDescendantOf(
             TagId node,
             TagId ancestor,
             BlobAssetReference<TagCatalogBlob> catalog)
         {
-            TagId current = node;
-            for (int depth = 0; depth < TagCatalog.MaxHierarchyDepth; depth++)
+            var current = node;
+            for (var depth = 0; depth < TagCatalog.MaxHierarchyDepth; depth++)
             {
-                if (!TagCatalog.TryFindDefinition(catalog, current, out TagDefinition definition)
+                if (!TagCatalog.TryFindDefinition(catalog, current, out var definition)
                     || definition.ParentId == LibraryTags.None)
-                {
                     return false;
-                }
 
-                if (definition.ParentId == ancestor)
-                {
-                    return true;
-                }
+                if (definition.ParentId == ancestor) return true;
 
                 current = definition.ParentId;
             }

@@ -36,17 +36,11 @@ namespace RebornFrame.Spell
         /// <inheritdoc />
         public int CompareTo(BuffSignalRequest other)
         {
-            int subject = SubjectStableId.CompareTo(other.SubjectStableId);
-            if (subject != 0)
-            {
-                return subject;
-            }
+            var subject = SubjectStableId.CompareTo(other.SubjectStableId);
+            if (subject != 0) return subject;
 
-            int signal = SignalId.CompareTo(other.SignalId);
-            if (signal != 0)
-            {
-                return signal;
-            }
+            var signal = SignalId.CompareTo(other.SignalId);
+            if (signal != 0) return signal;
 
             return RequestId.CompareTo(other.RequestId);
         }

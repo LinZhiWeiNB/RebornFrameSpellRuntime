@@ -4,7 +4,7 @@ using FixedMathSharp;
 namespace RebornFrame.Spell
 {
     /// <summary>
-    /// 由作者 ID 和作者内部编号组成的全局属性标识。
+    ///     由作者 ID 和作者内部编号组成的全局属性标识。
     /// </summary>
     public readonly struct AttributeId : IEquatable<AttributeId>, IComparable<AttributeId>
     {
@@ -12,7 +12,7 @@ namespace RebornFrame.Spell
         public readonly ulong Value;
 
         /// <summary>
-        /// 使用完整值创建属性标识。
+        ///     使用完整值创建属性标识。
         /// </summary>
         /// <param name="value">完整的 64 位属性标识。</param>
         public AttributeId(ulong value)
@@ -21,7 +21,7 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        /// 组合作者 ID 和作者内部编号。
+        ///     组合作者 ID 和作者内部编号。
         /// </summary>
         /// <param name="authorId">作者 ID。</param>
         /// <param name="localId">作者内部编号。</param>
@@ -102,7 +102,7 @@ namespace RebornFrame.Spell
         Fixed64 = 3,
 
         /// <summary>布尔值，原始值只能是 0 或 1。</summary>
-        Bool = 4,
+        Bool = 4
     }
 
     /// <summary>属性的运行时行为。</summary>
@@ -118,7 +118,7 @@ namespace RebornFrame.Spell
         Numeric = 2,
 
         /// <summary>当前值由覆盖修改器决定。</summary>
-        Marker = 3,
+        Marker = 3
     }
 
     /// <summary>属性结算事件所对应的值位置。</summary>
@@ -128,11 +128,11 @@ namespace RebornFrame.Spell
         Current = 0,
 
         /// <summary>最大值。</summary>
-        Max = 1,
+        Max = 1
     }
 
     /// <summary>
-    /// 属性结算事件的来源或请求结果。
+    ///     属性结算事件的来源或请求结果。
     /// </summary>
     public enum AttributeResolvedEventKind : byte
     {
@@ -149,11 +149,11 @@ namespace RebornFrame.Spell
         RequestNoChange = 3,
 
         /// <summary>资源当前值请求的数据在应用阶段无效。</summary>
-        RequestRejected = 4,
+        RequestRejected = 4
     }
 
     /// <summary>
-    /// 全局属性定义。默认值不属于全局定义，而属于单位预设。
+    ///     全局属性定义。默认值不属于全局定义，而属于单位预设。
     /// </summary>
     public struct AttributeDefinition : IEquatable<AttributeDefinition>
     {
@@ -176,10 +176,10 @@ namespace RebornFrame.Spell
         public bool Equals(AttributeDefinition other)
         {
             return Id == other.Id
-                && ValueKind == other.ValueKind
-                && Behavior == other.Behavior
-                && NonNegative == other.NonNegative
-                && ScaleCurrentWithMax == other.ScaleCurrentWithMax;
+                   && ValueKind == other.ValueKind
+                   && Behavior == other.Behavior
+                   && NonNegative == other.NonNegative
+                   && ScaleCurrentWithMax == other.ScaleCurrentWithMax;
         }
 
         /// <inheritdoc />
@@ -193,7 +193,7 @@ namespace RebornFrame.Spell
         {
             unchecked
             {
-                int hash = Id.GetHashCode();
+                var hash = Id.GetHashCode();
                 hash = (hash * 397) ^ (int)ValueKind;
                 hash = (hash * 397) ^ (int)Behavior;
                 hash = (hash * 397) ^ NonNegative;
@@ -204,7 +204,7 @@ namespace RebornFrame.Spell
     }
 
     /// <summary>
-    /// 带类型的属性原始值。
+    ///     带类型的属性原始值。
     /// </summary>
     public readonly struct AttributeValue : IEquatable<AttributeValue>
     {
@@ -215,7 +215,7 @@ namespace RebornFrame.Spell
         public readonly long Raw;
 
         /// <summary>
-        /// 创建带类型的原始值。
+        ///     创建带类型的原始值。
         /// </summary>
         /// <param name="kind">值类型。</param>
         /// <param name="raw">原始位。</param>
@@ -226,7 +226,7 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        /// 创建 32 位整数值。
+        ///     创建 32 位整数值。
         /// </summary>
         /// <param name="value">整数值。</param>
         /// <returns>属性值。</returns>
@@ -236,7 +236,7 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        /// 创建 64 位整数值。
+        ///     创建 64 位整数值。
         /// </summary>
         /// <param name="value">长整数值。</param>
         /// <returns>属性值。</returns>
@@ -246,7 +246,7 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        /// 创建 Q32.32 定点值。
+        ///     创建 Q32.32 定点值。
         /// </summary>
         /// <param name="value">定点值。</param>
         /// <returns>属性值。</returns>
@@ -256,7 +256,7 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        /// 创建布尔值。
+        ///     创建布尔值。
         /// </summary>
         /// <param name="value">布尔值。</param>
         /// <returns>属性值。</returns>
@@ -288,7 +288,7 @@ namespace RebornFrame.Spell
     }
 
     /// <summary>
-    /// 单位预设中的一条属性默认值。
+    ///     单位预设中的一条属性默认值。
     /// </summary>
     public struct UnitAttributePresetEntry
     {
@@ -300,7 +300,7 @@ namespace RebornFrame.Spell
     }
 
     /// <summary>
-    /// 单位初始化时对资源当前值的一次无事件覆盖。
+    ///     单位初始化时对资源当前值的一次无事件覆盖。
     /// </summary>
     public struct UnitResourceCurrentOverride
     {
@@ -312,7 +312,7 @@ namespace RebornFrame.Spell
     }
 
     /// <summary>
-    /// 对外读取的一份属性快照。
+    ///     对外读取的一份属性快照。
     /// </summary>
     public readonly struct AttributeSnapshot
     {
@@ -338,7 +338,7 @@ namespace RebornFrame.Spell
         public readonly long MaxBits;
 
         /// <summary>
-        /// 创建属性快照。
+        ///     创建属性快照。
         /// </summary>
         /// <param name="id">属性标识。</param>
         /// <param name="valueKind">值类型。</param>

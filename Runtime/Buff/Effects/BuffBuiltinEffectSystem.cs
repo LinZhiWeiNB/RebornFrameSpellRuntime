@@ -1,7 +1,4 @@
-using System;
-using Unity.Collections;
 using Unity.Entities;
-
 
 namespace RebornFrame.Spell
 {
@@ -10,10 +7,10 @@ namespace RebornFrame.Spell
     [UpdateInGroup(typeof(BuffEffectDispatchSystemGroup), OrderFirst = true)]
     public partial struct BuffBuiltinEffectSystem : ISystem
     {
-        int _dispatcherId;
+        private int _dispatcherId;
 
         /// <summary>
-        /// 登记作者 0、本地编号 1 到 100 的内置效果。
+        ///     登记作者 0、本地编号 1 到 100 的内置效果。
         /// </summary>
         /// <param name="state">系统状态。</param>
         public void OnCreate(ref SystemState state)
@@ -26,7 +23,7 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        /// 按本系统队列中的入队顺序执行内置效果。
+        ///     按本系统队列中的入队顺序执行内置效果。
         /// </summary>
         /// <param name="state">系统状态。</param>
         public void OnUpdate(ref SystemState state)
@@ -34,50 +31,34 @@ namespace RebornFrame.Spell
             if (!BuffEffectDispatchRoutes.TryGetIndices(
                     state.World,
                     _dispatcherId,
-                    out NativeArray<int> indices)
+                    out var indices)
                 || indices.Length == 0)
-            {
                 return;
-            }
 
-            EntityManager entityManager = state.EntityManager;
-            using EntityQuery query =
+            var entityManager = state.EntityManager;
+            using var query =
                 entityManager.CreateEntityQuery(ComponentType.ReadOnly<BuffCatalogReference>());
-            if (query.CalculateEntityCount() != 1)
-            {
-                return;
-            }
+            if (query.CalculateEntityCount() != 1) return;
 
-            Entity singleton = query.GetSingletonEntity();
-            DynamicBuffer<BuffEffectRequest> effects =
+            var singleton = query.GetSingletonEntity();
+            var effects =
                 entityManager.GetBuffer<BuffEffectRequest>(singleton);
-            for (int index = 0; index < indices.Length; index++)
+            for (var index = 0; index < indices.Length; index++)
             {
-                int effectIndex = indices[index];
-                BuffEffectRequest request = effects[effectIndex];
-                if (request.Handled != 0)
-                {
-                    continue;
-                }
+                var effectIndex = indices[index];
+                var request = effects[effectIndex];
+                if (request.Handled != 0) continue;
 
-                if (!entityManager.HasComponent<BuffRuntimeEffects>(singleton))
-                {
-                    continue;
-                }
+                if (!entityManager.HasComponent<BuffRuntimeEffects>(singleton)) continue;
 
-                BuffRuntimeEffects runtime = entityManager.GetComponentData<BuffRuntimeEffects>(singleton);
-                int bindingIndex = request.BindingIndex;
+                var runtime = entityManager.GetComponentData<BuffRuntimeEffects>(singleton);
+                var bindingIndex = request.BindingIndex;
                 if (runtime.Items == null
                     || (uint)bindingIndex >= (uint)runtime.Items.Length)
-                {
                     continue;
-                }
 
-                BuffEffectBase effect = BuffEffectBase.Create(request.EffectId);
-                if (effect == null)
-                {
-                    continue;
-                }
+                var effect = BuffEffectBase.Create(request.EffectId);
+                if (effect == null) continue;
 
                 effect.Execute(new BuffEffectContext(entityManager, request), runtime.Items[bindingIndex]);
                 request.Handled = 1;

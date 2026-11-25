@@ -1,7 +1,9 @@
+using System;
+
 namespace RebornFrame.Spell
 {
     /// <summary>
-    /// 作者 0、本地编号 0–99 的库保留 Buff 标识。
+    ///     作者 0、本地编号 0–99 的库保留 Buff 标识。
     /// </summary>
     public static class LibraryBuff
     {
@@ -48,7 +50,7 @@ namespace RebornFrame.Spell
         public static BuffEffectId RemoveTagEffect => BuffEffectId.Combine(AuthorId, 4);
 
         /// <summary>
-        /// 判断标识是否落在作者 0 的保留编号内。
+        ///     判断标识是否落在作者 0 的保留编号内。
         /// </summary>
         /// <param name="authorId">作者 ID。</param>
         /// <param name="localId">本地编号。</param>
@@ -60,13 +62,13 @@ namespace RebornFrame.Spell
     }
 
     /// <summary>
-    /// 声明一个可由编辑器导出 schema 的 Buff 效果。
+    ///     声明一个可由编辑器导出 schema 的 Buff 效果。
     /// </summary>
-    [System.AttributeUsage(System.AttributeTargets.Class | System.AttributeTargets.Struct)]
-    public sealed class BuffEffectAttribute : System.Attribute
+    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct)]
+    public sealed class BuffEffectAttribute : Attribute
     {
         /// <summary>
-        /// 创建效果声明。
+        ///     创建效果声明。
         /// </summary>
         /// <param name="authorId">作者 ID。</param>
         /// <param name="localId">作者内部编号。</param>
@@ -98,13 +100,13 @@ namespace RebornFrame.Spell
     }
 
     /// <summary>
-    /// 声明效果参数结构体中的一个稳定字段。
+    ///     声明效果参数结构体中的一个稳定字段。
     /// </summary>
-    [System.AttributeUsage(System.AttributeTargets.Field)]
-    public sealed class BuffEffectFieldAttribute : System.Attribute
+    [AttributeUsage(AttributeTargets.Field)]
+    public sealed class BuffEffectFieldAttribute : Attribute
     {
         /// <summary>
-        /// 创建字段声明。
+        ///     创建字段声明。
         /// </summary>
         /// <param name="fieldId">稳定字段 ID。重排字段时不得改变。</param>
         /// <param name="displayKey">编辑器显示用的本地化 Key。</param>

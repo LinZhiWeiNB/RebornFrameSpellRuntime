@@ -5,7 +5,7 @@ using Unity.Entities;
 namespace RebornFrame.Spell
 {
     /// <summary>
-    /// 与目录效果数组顺序一致的效果参数消息。没有参数时为 null。
+    ///     与目录效果数组顺序一致的效果参数消息。没有参数时为 null。
     /// </summary>
     public sealed class BuffRuntimeEffects : IComponentData
     {
@@ -25,7 +25,7 @@ namespace RebornFrame.Spell
     }
 
     /// <summary>
-    /// 本 tick 按结构阶段入队的效果。分发顺序就是入队顺序。
+    ///     本 tick 按结构阶段入队的效果。分发顺序就是入队顺序。
     /// </summary>
     [InternalBufferCapacity(8)]
     public struct BuffEffectRequest : IBufferElementData

@@ -7,34 +7,31 @@ namespace RebornFrame.Spell
     public partial struct BuffLifecycleSystem
     {
         /// <summary>抽走当前创建请求并清空 Pending，再按目标、定义和请求号排序。</summary>
-        void DrainCreates(EntityManager entityManager, Entity singleton)
+        private void DrainCreates(EntityManager entityManager, Entity singleton)
         {
-            DynamicBuffer<PendingBuffCreateRequest> pending =
+            var pending =
                 entityManager.GetBuffer<PendingBuffCreateRequest>(singleton);
             _creates.Clear();
-            for (int index = 0; index < pending.Length; index++)
-            {
-                _creates.Add(pending[index].Value);
-            }
+            for (var index = 0; index < pending.Length; index++) _creates.Add(pending[index].Value);
 
             pending.Clear();
             _creates.Sort();
         }
 
         /// <summary>
-        /// 按排序逐条创建。后一条能看见前一条的叠层、Tag 和互斥结果。
+        ///     按排序逐条创建。后一条能看见前一条的叠层、Tag 和互斥结果。
         /// </summary>
-        void ProcessCreates(
+        private void ProcessCreates(
             EntityManager entityManager,
             Entity singleton,
             BlobAssetReference<BuffCatalogBlob> catalog,
             BlobAssetReference<TagCatalogBlob> tags,
             int logicTick)
         {
-            for (int index = 0; index < _creates.Length; index++)
+            for (var index = 0; index < _creates.Length; index++)
             {
-                BuffCreateRequest request = _creates[index];
-                int unitIndex = IndexOf(request.TargetStableId);
+                var request = _creates[index];
+                var unitIndex = IndexOf(request.TargetStableId);
                 if (unitIndex < 0)
                 {
                     // 目标不在本 tick 的单位表里，拒绝记在目录实体上。
@@ -42,14 +39,14 @@ namespace RebornFrame.Spell
                     continue;
                 }
 
-                Entity entity = _units[unitIndex].Entity;
-                if (!BuffCatalog.TryFindDefinitionIndex(catalog, request.BuffId, out int definitionIndex))
+                var entity = _units[unitIndex].Entity;
+                if (!BuffCatalog.TryFindDefinitionIndex(catalog, request.BuffId, out var definitionIndex))
                 {
                     AddEvent(entityManager, entity, Rejected(request));
                     continue;
                 }
 
-                ref BuffDefinition definition = ref catalog.Value.Definitions[definitionIndex];
+                ref var definition = ref catalog.Value.Definitions[definitionIndex];
                 if (IsImmune(entityManager, entity, tags, catalog, in definition)
                     || !TagsMatch(
                         entityManager,
@@ -82,8 +79,8 @@ namespace RebornFrame.Spell
                                 DefinitionId = request.BuffId,
                                 DefinitionIndex = definitionIndex,
                                 SourceStableId = request.SourceStableId,
-                                TargetStableId = request.TargetStableId,
-                            },
+                                TargetStableId = request.TargetStableId
+                            }
                         });
                     AddEvent(entityManager, entity, new BuffResolvedEvent
                     {
@@ -91,7 +88,7 @@ namespace RebornFrame.Spell
                         Kind = BuffResolvedEventKind.CreateApplied,
                         DefinitionId = request.BuffId,
                         TargetStableId = request.TargetStableId,
-                        SourceStableId = request.SourceStableId,
+                        SourceStableId = request.SourceStableId
                     });
                     continue;
                 }
@@ -102,7 +99,7 @@ namespace RebornFrame.Spell
                         entity,
                         in definition,
                         request.SourceStableId,
-                        out int stackIndex))
+                        out var stackIndex))
                 {
                     ApplyStack(
                         entityManager,
@@ -140,7 +137,7 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>往已有实例上叠一层。满层时按配置拒绝，或只刷新时长。</summary>
-        void ApplyStack(
+        private void ApplyStack(
             EntityManager entityManager,
             Entity singleton,
             BlobAssetReference<BuffCatalogBlob> catalog,
@@ -149,10 +146,10 @@ namespace RebornFrame.Spell
             BuffCreateRequest request,
             int logicTick)
         {
-            DynamicBuffer<BuffInstanceElement> instances =
+            var instances =
                 entityManager.GetBuffer<BuffInstanceElement>(entity);
-            BuffInstanceElement instance = instances[instanceIndex];
-            ref BuffDefinition definition = ref catalog.Value.Definitions[instance.DefinitionIndex];
+            var instance = instances[instanceIndex];
+            ref var definition = ref catalog.Value.Definitions[instance.DefinitionIndex];
             if (instance.StackCount >= definition.MaxStacks)
             {
                 // 满层不增加层数。拒绝直接返回，刷新则重写剩余时间。
@@ -180,23 +177,19 @@ namespace RebornFrame.Spell
                 return;
             }
 
-            int oldStack = instance.StackCount;
+            var oldStack = instance.StackCount;
             instance.NextLayerId++;
             instance.StackCount++;
             // 新层用当前 logicTick，本 tick 已经过了创建阶段，后面的步进仍会扣它。
             if (definition.RefreshPolicy == BuffRefreshPolicy.RefreshAll)
-            {
                 Refresh(entityManager, entity, ref instance, in definition);
-            }
 
             if (definition.PeriodReset == BuffPeriodResetPolicy.Reset)
-            {
                 ResetPeriods(entityManager, entity, instance.InstanceId);
-            }
 
             instances = entityManager.GetBuffer<BuffInstanceElement>(entity);
             instances[instanceIndex] = instance;
-            BuffClockKey clock = instance.DurationClock;
+            var clock = instance.DurationClock;
             entityManager.GetBuffer<BuffLayerStateElement>(entity).Add(new BuffLayerStateElement
             {
                 InstanceId = instance.InstanceId,
@@ -204,7 +197,7 @@ namespace RebornFrame.Spell
                 SourceStableId = request.SourceStableId,
                 Clock = clock,
                 Remain = definition.DurationSteps,
-                CreatedTick = logicTick,
+                CreatedTick = logicTick
             });
             PublishUpdate(
                 entityManager,
@@ -221,22 +214,19 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>把实例和它的每一层剩余都写回定义时长。</summary>
-        static void Refresh(
+        private static void Refresh(
             EntityManager entityManager,
             Entity entity,
             ref BuffInstanceElement instance,
             in BuffDefinition definition)
         {
             instance.SharedRemain = definition.DurationSteps;
-            DynamicBuffer<BuffLayerStateElement> layers =
+            var layers =
                 entityManager.GetBuffer<BuffLayerStateElement>(entity);
-            for (int index = 0; index < layers.Length; index++)
+            for (var index = 0; index < layers.Length; index++)
             {
-                BuffLayerStateElement layer = layers[index];
-                if (layer.InstanceId != instance.InstanceId)
-                {
-                    continue;
-                }
+                var layer = layers[index];
+                if (layer.InstanceId != instance.InstanceId) continue;
 
                 layer.Remain = definition.DurationSteps;
                 layers[index] = layer;
@@ -244,13 +234,13 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>把该实例的周期触发剩余重置为间隔。信号冷却不动。</summary>
-        static void ResetPeriods(EntityManager entityManager, Entity entity, long instanceId)
+        private static void ResetPeriods(EntityManager entityManager, Entity entity, long instanceId)
         {
-            DynamicBuffer<BuffTriggerStateElement> triggers =
+            var triggers =
                 entityManager.GetBuffer<BuffTriggerStateElement>(entity);
-            for (int index = 0; index < triggers.Length; index++)
+            for (var index = 0; index < triggers.Length; index++)
             {
-                BuffTriggerStateElement trigger = triggers[index];
+                var trigger = triggers[index];
                 if (trigger.InstanceId == instanceId && trigger.Kind == 1)
                 {
                     // Kind 1 是周期触发，重置为完整间隔。
@@ -262,7 +252,7 @@ namespace RebornFrame.Spell
 
         /// <summary>处理互斥组。没有互斥组时允许创建。已有更强实例则拒绝，否则先结束同组旧实例。</summary>
         /// <returns>新请求可以继续创建时为 true。</returns>
-        bool TryReplaceExclusive(
+        private bool TryReplaceExclusive(
             EntityManager entityManager,
             Entity singleton,
             BlobAssetReference<BuffCatalogBlob> catalog,
@@ -270,38 +260,27 @@ namespace RebornFrame.Spell
             in BuffDefinition incoming,
             BuffCreateRequest request)
         {
-            if (incoming.ExclusiveGroup == LibraryTags.None)
-            {
-                return true;
-            }
+            if (incoming.ExclusiveGroup == LibraryTags.None) return true;
 
-            DynamicBuffer<BuffInstanceElement> instances =
+            var instances =
                 entityManager.GetBuffer<BuffInstanceElement>(entity);
-            for (int index = 0; index < instances.Length; index++)
+            for (var index = 0; index < instances.Length; index++)
             {
-                BuffInstanceElement instance = instances[index];
-                if (instance.Alive == 0 || instance.ExclusiveGroup != incoming.ExclusiveGroup)
-                {
-                    continue;
-                }
+                var instance = instances[index];
+                if (instance.Alive == 0 || instance.ExclusiveGroup != incoming.ExclusiveGroup) continue;
 
                 if (instance.ExclusivePriority > incoming.ExclusivePriority
                     || (instance.ExclusivePriority == incoming.ExclusivePriority
                         && instance.RequestId > request.RequestId))
-                {
                     // 优先级更高，或同优先级但请求号更大的旧实例，挡住新请求。
                     return false;
-                }
             }
 
             // 没有更强的旧实例，同组活实例都按替换结束。
-            for (int index = 0; index < instances.Length; index++)
+            for (var index = 0; index < instances.Length; index++)
             {
-                BuffInstanceElement instance = instances[index];
-                if (instance.Alive == 0 || instance.ExclusiveGroup != incoming.ExclusiveGroup)
-                {
-                    continue;
-                }
+                var instance = instances[index];
+                if (instance.Alive == 0 || instance.ExclusiveGroup != incoming.ExclusiveGroup) continue;
 
                 Tombstone(
                     entityManager,
@@ -319,7 +298,7 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>分配实例和第一层，写入触发器、授予 Tag，并排队创建效果。</summary>
-        void CreateInstance(
+        private void CreateInstance(
             EntityManager entityManager,
             Entity singleton,
             BlobAssetReference<BuffCatalogBlob> catalog,
@@ -328,20 +307,20 @@ namespace RebornFrame.Spell
             BuffCreateRequest request,
             int logicTick)
         {
-            ref BuffDefinition definition = ref catalog.Value.Definitions[definitionIndex];
+            ref var definition = ref catalog.Value.Definitions[definitionIndex];
             if (!TryResolveClock(
                     definition.DurationScope,
                     definition.DurationIterator,
                     request.TargetStableId,
                     request.SourceStableId,
-                    out BuffClockKey clock))
+                    out var clock))
             {
                 // 目标或来源时钟解析不出稳定 ID 时，不建实例。
                 AddEvent(entityManager, entity, Rejected(request));
                 return;
             }
 
-            long instanceId = AllocateInstance(entityManager, singleton);
+            var instanceId = AllocateInstance(entityManager, singleton);
             var instance = new BuffInstanceElement
             {
                 InstanceId = instanceId,
@@ -359,7 +338,7 @@ namespace RebornFrame.Spell
                 DurationMode = definition.DurationMode,
                 DurationClock = clock,
                 ExclusiveGroup = definition.ExclusiveGroup,
-                ExclusivePriority = definition.ExclusivePriority,
+                ExclusivePriority = definition.ExclusivePriority
             };
             entityManager.GetBuffer<BuffInstanceElement>(entity).Add(instance);
             entityManager.GetBuffer<BuffLayerStateElement>(entity).Add(new BuffLayerStateElement
@@ -369,7 +348,7 @@ namespace RebornFrame.Spell
                 SourceStableId = request.SourceStableId,
                 Clock = clock,
                 Remain = definition.DurationSteps,
-                CreatedTick = logicTick,
+                CreatedTick = logicTick
             });
             AddTriggerStates(
                 entityManager,
@@ -390,7 +369,7 @@ namespace RebornFrame.Spell
                 {
                     CauseRequestId = request.RequestId,
                     Phase = BuffEffectPhase.Create,
-                    Instance = instance,
+                    Instance = instance
                 });
             AddEvent(entityManager, entity, new BuffResolvedEvent
             {
@@ -401,12 +380,12 @@ namespace RebornFrame.Spell
                 TargetStableId = request.TargetStableId,
                 SourceStableId = request.SourceStableId,
                 NewStack = 1,
-                NewRemain = definition.DurationSteps,
+                NewRemain = definition.DurationSteps
             });
         }
 
         /// <summary>为新实例写入周期和信号触发状态。周期剩余从完整间隔开始，信号冷却从 0 开始。</summary>
-        static void AddTriggerStates(
+        private static void AddTriggerStates(
             EntityManager entityManager,
             BlobAssetReference<BuffCatalogBlob> catalog,
             Entity entity,
@@ -415,16 +394,13 @@ namespace RebornFrame.Spell
             ulong target,
             ulong source)
         {
-            DynamicBuffer<BuffTriggerStateElement> triggers =
+            var triggers =
                 entityManager.GetBuffer<BuffTriggerStateElement>(entity);
-            for (int index = 0; index < definition.PeriodicCount; index++)
+            for (var index = 0; index < definition.PeriodicCount; index++)
             {
-                ref BuffPeriodicTriggerDefinition periodic =
+                ref var periodic =
                     ref catalog.Value.PeriodicTriggers[definition.PeriodicStart + index];
-                if (!TryResolveClock(periodic.Scope, periodic.IteratorId, target, source, out BuffClockKey clock))
-                {
-                    continue;
-                }
+                if (!TryResolveClock(periodic.Scope, periodic.IteratorId, target, source, out var clock)) continue;
 
                 triggers.Add(new BuffTriggerStateElement
                 {
@@ -434,13 +410,13 @@ namespace RebornFrame.Spell
                     Kind = 1,
                     Clock = clock,
                     Interval = periodic.Interval,
-                    Remain = periodic.Interval,
+                    Remain = periodic.Interval
                 });
             }
 
-            for (int index = 0; index < definition.SignalCount; index++)
+            for (var index = 0; index < definition.SignalCount; index++)
             {
-                ref BuffSignalTriggerDefinition signal =
+                ref var signal =
                     ref catalog.Value.SignalTriggers[definition.SignalStart + index];
                 triggers.Add(new BuffTriggerStateElement
                 {
@@ -449,35 +425,33 @@ namespace RebornFrame.Spell
                     // Kind 2 是信号冷却，Remain 默认 0，第一次信号就能触发。
                     Kind = 2,
                     SignalId = signal.SignalId,
-                    Interval = signal.Interval,
+                    Interval = signal.Interval
                 });
             }
         }
 
         /// <summary>把定义里的 Tag 记成这条实例的贡献。移除时只删这份贡献。</summary>
-        static void GrantDefinedTags(
+        private static void GrantDefinedTags(
             EntityManager entityManager,
             BlobAssetReference<BuffCatalogBlob> catalog,
             Entity entity,
             long instanceId,
             in BuffDefinition definition)
         {
-            DynamicBuffer<GameplayTagContribution> tags =
+            var tags =
                 entityManager.GetBuffer<GameplayTagContribution>(entity);
-            for (int index = 0; index < definition.GrantedTagCount; index++)
-            {
+            for (var index = 0; index < definition.GrantedTagCount; index++)
                 tags.Add(new GameplayTagContribution
                 {
                     Tag = catalog.Value.Tags[definition.GrantedTagStart + index],
                     SourceKind = GameplayTagSourceKind.Buff,
-                    SourceId = instanceId,
+                    SourceId = instanceId
                 });
-            }
         }
 
         /// <summary>把全局、目标或来源范围解析成精确时钟。范围要求的稳定 ID 为 0 时失败。</summary>
         /// <returns>解析成功时为 true。</returns>
-        static bool TryResolveClock(
+        private static bool TryResolveClock(
             BuffClockScope scope,
             BuffIteratorId iterator,
             ulong target,
@@ -487,13 +461,8 @@ namespace RebornFrame.Spell
             ulong scopeId = 0;
             // 全局时钟的作用域固定为 0。目标和来源各自使用对应单位的稳定 ID。
             if (scope == BuffClockScope.Target)
-            {
                 scopeId = target;
-            }
-            else if (scope == BuffClockScope.Source)
-            {
-                scopeId = source;
-            }
+            else if (scope == BuffClockScope.Source) scopeId = source;
 
             if (scope != BuffClockScope.Global && scopeId == 0)
             {
@@ -508,13 +477,10 @@ namespace RebornFrame.Spell
 
         /// <summary>发放正的实例 ID。耗尽时失败，不回绕。</summary>
         /// <returns>新的实例 ID。</returns>
-        static long AllocateInstance(EntityManager entityManager, Entity singleton)
+        private static long AllocateInstance(EntityManager entityManager, Entity singleton)
         {
-            BuffSimulationState state = entityManager.GetComponentData<BuffSimulationState>(singleton);
-            if (state.LastInstanceId == long.MaxValue)
-            {
-                throw new InvalidOperationException("Buff 实例 ID 已耗尽。");
-            }
+            var state = entityManager.GetComponentData<BuffSimulationState>(singleton);
+            if (state.LastInstanceId == long.MaxValue) throw new InvalidOperationException("Buff 实例 ID 已耗尽。");
 
             state.LastInstanceId++;
             entityManager.SetComponentData(singleton, state);
@@ -523,28 +489,23 @@ namespace RebornFrame.Spell
 
         /// <summary>查找同一身份的活实例。按目标区分时忽略来源，按目标和来源区分时还要比来源。</summary>
         /// <returns>找到时为 true。</returns>
-        bool TryFindStack(
+        private bool TryFindStack(
             EntityManager entityManager,
             Entity entity,
             in BuffDefinition definition,
             ulong source,
             out int index)
         {
-            DynamicBuffer<BuffInstanceElement> instances =
+            var instances =
                 entityManager.GetBuffer<BuffInstanceElement>(entity);
-            for (int instanceIndex = 0; instanceIndex < instances.Length; instanceIndex++)
+            for (var instanceIndex = 0; instanceIndex < instances.Length; instanceIndex++)
             {
-                BuffInstanceElement instance = instances[instanceIndex];
-                if (instance.Alive == 0 || instance.DefinitionId != definition.Id)
-                {
-                    continue;
-                }
+                var instance = instances[instanceIndex];
+                if (instance.Alive == 0 || instance.DefinitionId != definition.Id) continue;
 
                 if (definition.Identity == BuffStackIdentity.PerTargetAndSource
                     && instance.SourceStableId != source)
-                {
                     continue;
-                }
 
                 index = instanceIndex;
                 return true;
@@ -556,20 +517,17 @@ namespace RebornFrame.Spell
 
         /// <summary>定义的任一免疫 Tag 已存在时，创建请求应被拒绝。</summary>
         /// <returns>命中免疫时为 true。</returns>
-        static bool IsImmune(
+        private static bool IsImmune(
             EntityManager entityManager,
             Entity entity,
             BlobAssetReference<TagCatalogBlob> tags,
             BlobAssetReference<BuffCatalogBlob> catalog,
             in BuffDefinition definition)
         {
-            for (int index = 0; index < definition.ImmunityTagCount; index++)
+            for (var index = 0; index < definition.ImmunityTagCount; index++)
             {
-                TagId immunity = catalog.Value.Tags[definition.ImmunityTagStart + index];
-                if (HasContribution(entityManager, entity, tags, immunity))
-                {
-                    return true;
-                }
+                var immunity = catalog.Value.Tags[definition.ImmunityTagStart + index];
+                if (HasContribution(entityManager, entity, tags, immunity)) return true;
             }
 
             return false;
@@ -577,7 +535,7 @@ namespace RebornFrame.Spell
 
         /// <summary>组装一条创建被拒绝的事件。</summary>
         /// <returns>拒绝事件。</returns>
-        static BuffResolvedEvent Rejected(BuffCreateRequest request)
+        private static BuffResolvedEvent Rejected(BuffCreateRequest request)
         {
             return new BuffResolvedEvent
             {
@@ -585,7 +543,7 @@ namespace RebornFrame.Spell
                 Kind = BuffResolvedEventKind.CreateRejected,
                 DefinitionId = request.BuffId,
                 TargetStableId = request.TargetStableId,
-                SourceStableId = request.SourceStableId,
+                SourceStableId = request.SourceStableId
             };
         }
     }

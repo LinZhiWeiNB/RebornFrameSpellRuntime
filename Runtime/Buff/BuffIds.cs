@@ -3,7 +3,7 @@ using System;
 namespace RebornFrame.Spell
 {
     /// <summary>
-    /// 由作者 ID 和作者内部编号组成的 Buff 定义标识。
+    ///     由作者 ID 和作者内部编号组成的 Buff 定义标识。
     /// </summary>
     public readonly struct BuffId : IEquatable<BuffId>, IComparable<BuffId>
     {
@@ -11,7 +11,7 @@ namespace RebornFrame.Spell
         public readonly ulong Value;
 
         /// <summary>
-        /// 使用完整值创建 Buff 标识。
+        ///     使用完整值创建 Buff 标识。
         /// </summary>
         /// <param name="value">完整的 64 位标识。</param>
         public BuffId(ulong value)
@@ -20,7 +20,7 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        /// 组合作者 ID 和作者内部编号。
+        ///     组合作者 ID 和作者内部编号。
         /// </summary>
         /// <param name="authorId">作者 ID。</param>
         /// <param name="localId">作者内部编号。</param>
@@ -86,7 +86,7 @@ namespace RebornFrame.Spell
     }
 
     /// <summary>
-    /// 由作者 ID 和作者内部编号组成的 Buff 效果标识。
+    ///     由作者 ID 和作者内部编号组成的 Buff 效果标识。
     /// </summary>
     public readonly struct BuffEffectId : IEquatable<BuffEffectId>, IComparable<BuffEffectId>
     {
@@ -94,7 +94,7 @@ namespace RebornFrame.Spell
         public readonly ulong Value;
 
         /// <summary>
-        /// 使用完整值创建效果标识。
+        ///     使用完整值创建效果标识。
         /// </summary>
         /// <param name="value">完整的 64 位标识。</param>
         public BuffEffectId(ulong value)
@@ -103,7 +103,7 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        /// 组合作者 ID 和作者内部编号。
+        ///     组合作者 ID 和作者内部编号。
         /// </summary>
         /// <param name="authorId">作者 ID。</param>
         /// <param name="localId">作者内部编号。</param>
@@ -169,7 +169,7 @@ namespace RebornFrame.Spell
     }
 
     /// <summary>
-    /// 由作者 ID 和作者内部编号组成的外部信号标识。
+    ///     由作者 ID 和作者内部编号组成的外部信号标识。
     /// </summary>
     public readonly struct BuffSignalId : IEquatable<BuffSignalId>, IComparable<BuffSignalId>
     {
@@ -177,7 +177,7 @@ namespace RebornFrame.Spell
         public readonly ulong Value;
 
         /// <summary>
-        /// 使用完整值创建信号标识。
+        ///     使用完整值创建信号标识。
         /// </summary>
         /// <param name="value">完整的 64 位标识。</param>
         public BuffSignalId(ulong value)
@@ -186,7 +186,7 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        /// 组合作者 ID 和作者内部编号。
+        ///     组合作者 ID 和作者内部编号。
         /// </summary>
         /// <param name="authorId">作者 ID。</param>
         /// <param name="localId">作者内部编号。</param>
@@ -252,7 +252,7 @@ namespace RebornFrame.Spell
     }
 
     /// <summary>
-    /// 由作者 ID 和作者内部编号组成的步进时钟种类。
+    ///     由作者 ID 和作者内部编号组成的步进时钟种类。
     /// </summary>
     public readonly struct BuffIteratorId : IEquatable<BuffIteratorId>, IComparable<BuffIteratorId>
     {
@@ -260,7 +260,7 @@ namespace RebornFrame.Spell
         public readonly ulong Value;
 
         /// <summary>
-        /// 使用完整值创建迭代器标识。
+        ///     使用完整值创建迭代器标识。
         /// </summary>
         /// <param name="value">完整的 64 位标识。</param>
         public BuffIteratorId(ulong value)
@@ -269,7 +269,7 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        /// 组合作者 ID 和作者内部编号。
+        ///     组合作者 ID 和作者内部编号。
         /// </summary>
         /// <param name="authorId">作者 ID。</param>
         /// <param name="localId">作者内部编号。</param>
@@ -335,7 +335,7 @@ namespace RebornFrame.Spell
     }
 
     /// <summary>
-    /// 精确步进时钟。ScopeStableId 为 0 时表示全局时钟，不是全体单位的通配。
+    ///     精确步进时钟。ScopeStableId 为 0 时表示全局时钟，不是全体单位的通配。
     /// </summary>
     public readonly struct BuffClockKey : IEquatable<BuffClockKey>, IComparable<BuffClockKey>
     {
@@ -346,7 +346,7 @@ namespace RebornFrame.Spell
         public readonly ulong ScopeStableId;
 
         /// <summary>
-        /// 创建精确时钟键。
+        ///     创建精确时钟键。
         /// </summary>
         /// <param name="iteratorId">时钟种类。</param>
         /// <param name="scopeStableId">作用域稳定 ID。全局时钟使用 0。</param>
@@ -377,11 +377,8 @@ namespace RebornFrame.Spell
         /// <inheritdoc />
         public int CompareTo(BuffClockKey other)
         {
-            int iterator = IteratorId.CompareTo(other.IteratorId);
-            if (iterator != 0)
-            {
-                return iterator;
-            }
+            var iterator = IteratorId.CompareTo(other.IteratorId);
+            if (iterator != 0) return iterator;
 
             return ScopeStableId.CompareTo(other.ScopeStableId);
         }

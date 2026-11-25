@@ -7,7 +7,7 @@ namespace RebornFrame.Spell
     public sealed class GrantTagBuffEffect : BuffEffectBase
     {
         /// <summary>
-        /// 把参数当成 <see cref="GrantTagBuffEffectConfig"/> 并授予 Tag。
+        ///     把参数当成 <see cref="GrantTagBuffEffectConfig" /> 并授予 Tag。
         /// </summary>
         /// <param name="context">本次效果的读写入口。</param>
         /// <param name="parameters">Tag 参数。</param>

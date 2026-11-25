@@ -27,11 +27,8 @@ namespace RebornFrame.Spell
         /// <inheritdoc />
         public int CompareTo(BuffDestroyRequest other)
         {
-            int instance = InstanceId.CompareTo(other.InstanceId);
-            if (instance != 0)
-            {
-                return instance;
-            }
+            var instance = InstanceId.CompareTo(other.InstanceId);
+            if (instance != 0) return instance;
 
             return RequestId.CompareTo(other.RequestId);
         }

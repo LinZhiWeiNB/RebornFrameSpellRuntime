@@ -186,25 +186,15 @@ namespace RebornFrame.Spell
     }
 
     /// <summary>
-    /// 校验、排序并冻结 Buff 目录。
+    ///     校验、排序并冻结 Buff 目录。
     /// </summary>
     public static class BuffCatalog
     {
-        const ulong FnvOffset = 14695981039346656037UL;
-        const ulong FnvPrime = 1099511628211UL;
-
-        sealed class DefinitionComparer : IComparer<BuffDefinitionData>
-        {
-            internal static readonly DefinitionComparer Instance = new DefinitionComparer();
-
-            public int Compare(BuffDefinitionData left, BuffDefinitionData right)
-            {
-                return left.Id.CompareTo(right.Id);
-            }
-        }
+        private const ulong FnvOffset = 14695981039346656037UL;
+        private const ulong FnvPrime = 1099511628211UL;
 
         /// <summary>
-        /// 校验、排序并冻结 Buff 定义。重复且内容哈希一致的定义会合并。
+        ///     校验、排序并冻结 Buff 定义。重复且内容哈希一致的定义会合并。
         /// </summary>
         /// <param name="definitions">待构建的定义。</param>
         /// <param name="allocator">BlobAsset 的持久分配器。</param>
@@ -217,19 +207,13 @@ namespace RebornFrame.Spell
             Allocator allocator,
             out IMessage[] effects)
         {
-            if (definitions == null)
-            {
-                throw new ArgumentNullException(nameof(definitions));
-            }
+            if (definitions == null) throw new ArgumentNullException(nameof(definitions));
 
             var sorted = new List<BuffDefinitionData>(definitions.Count);
-            for (int index = 0; index < definitions.Count; index++)
+            for (var index = 0; index < definitions.Count; index++)
             {
-                BuffDefinitionData definition = definitions[index];
-                if (definition == null)
-                {
-                    throw new ArgumentException("Buff 定义不能为 null。", nameof(definitions));
-                }
+                var definition = definitions[index];
+                if (definition == null) throw new ArgumentException("Buff 定义不能为 null。", nameof(definitions));
 
                 Validate(definition);
                 sorted.Add(definition);
@@ -238,10 +222,10 @@ namespace RebornFrame.Spell
             sorted.Sort(DefinitionComparer.Instance);
             var unique = new List<BuffDefinitionData>(sorted.Count);
             var hashes = new List<ulong>(sorted.Count);
-            for (int index = 0; index < sorted.Count; index++)
+            for (var index = 0; index < sorted.Count; index++)
             {
-                BuffDefinitionData definition = sorted[index];
-                ulong hash = HashDefinition(definition);
+                var definition = sorted[index];
+                var hash = HashDefinition(definition);
                 if (unique.Count == 0 || unique[unique.Count - 1].Id != definition.Id)
                 {
                     unique.Add(definition);
@@ -250,9 +234,7 @@ namespace RebornFrame.Spell
                 }
 
                 if (hashes[hashes.Count - 1] != hash)
-                {
                     throw new ArgumentException($"Buff {definition.Id} 存在冲突定义。", nameof(definitions));
-                }
             }
 
             var tags = new List<TagId>();
@@ -262,8 +244,8 @@ namespace RebornFrame.Spell
             var signals = new List<BuffSignalTriggerDefinition>();
             var payloads = new List<byte>();
             var built = new List<BuffDefinition>(unique.Count);
-            ulong schema = FnvOffset;
-            for (int index = 0; index < unique.Count; index++)
+            var schema = FnvOffset;
+            for (var index = 0; index < unique.Count; index++)
             {
                 built.Add(Pack(
                     unique[index],
@@ -277,49 +259,34 @@ namespace RebornFrame.Spell
             }
 
             using var builder = new BlobBuilder(Allocator.Temp);
-            ref BuffCatalogBlob root = ref builder.ConstructRoot<BuffCatalogBlob>();
+            ref var root = ref builder.ConstructRoot<BuffCatalogBlob>();
             root.SchemaHash = schema;
-            BlobBuilderArray<BuffDefinition> definitionArray =
+            var definitionArray =
                 builder.Allocate(ref root.Definitions, built.Count);
-            for (int index = 0; index < built.Count; index++)
-            {
-                definitionArray[index] = built[index];
-            }
+            for (var index = 0; index < built.Count; index++) definitionArray[index] = built[index];
 
             Allocate(builder, ref root.Tags, tags);
-            BlobBuilderArray<BuffEffectBinding> effectArray =
+            var effectArray =
                 builder.Allocate(ref root.Effects, effectBindings.Count);
-            for (int index = 0; index < effectBindings.Count; index++)
-            {
-                effectArray[index] = effectBindings[index];
-            }
+            for (var index = 0; index < effectBindings.Count; index++) effectArray[index] = effectBindings[index];
 
-            BlobBuilderArray<BuffPeriodicTriggerDefinition> periodicArray =
+            var periodicArray =
                 builder.Allocate(ref root.PeriodicTriggers, periodic.Count);
-            for (int index = 0; index < periodic.Count; index++)
-            {
-                periodicArray[index] = periodic[index];
-            }
+            for (var index = 0; index < periodic.Count; index++) periodicArray[index] = periodic[index];
 
-            BlobBuilderArray<BuffSignalTriggerDefinition> signalArray =
+            var signalArray =
                 builder.Allocate(ref root.SignalTriggers, signals.Count);
-            for (int index = 0; index < signals.Count; index++)
-            {
-                signalArray[index] = signals[index];
-            }
+            for (var index = 0; index < signals.Count; index++) signalArray[index] = signals[index];
 
-            BlobBuilderArray<byte> payloadArray = builder.Allocate(ref root.Payloads, payloads.Count);
-            for (int index = 0; index < payloads.Count; index++)
-            {
-                payloadArray[index] = payloads[index];
-            }
+            var payloadArray = builder.Allocate(ref root.Payloads, payloads.Count);
+            for (var index = 0; index < payloads.Count; index++) payloadArray[index] = payloads[index];
 
             effects = runtimeEffects.ToArray();
             return builder.CreateBlobAssetReference<BuffCatalogBlob>(allocator);
         }
 
         /// <summary>
-        /// 在冻结目录中查找 Buff 定义下标。
+        ///     在冻结目录中查找 Buff 定义下标。
         /// </summary>
         /// <param name="catalog">冻结目录。</param>
         /// <param name="id">Buff 标识。</param>
@@ -336,13 +303,13 @@ namespace RebornFrame.Spell
                 return false;
             }
 
-            ref BlobArray<BuffDefinition> definitions = ref catalog.Value.Definitions;
-            int low = 0;
-            int high = definitions.Length - 1;
+            ref var definitions = ref catalog.Value.Definitions;
+            var low = 0;
+            var high = definitions.Length - 1;
             while (low <= high)
             {
-                int middle = low + ((high - low) >> 1);
-                BuffId candidate = definitions[middle].Id;
+                var middle = low + ((high - low) >> 1);
+                var candidate = definitions[middle].Id;
                 if (candidate == id)
                 {
                     index = middle;
@@ -350,32 +317,25 @@ namespace RebornFrame.Spell
                 }
 
                 if (candidate.Value < id.Value)
-                {
                     low = middle + 1;
-                }
                 else
-                {
                     high = middle - 1;
-                }
             }
 
             index = -1;
             return false;
         }
 
-        static void Allocate(
+        private static void Allocate(
             BlobBuilder builder,
             ref BlobArray<TagId> target,
             List<TagId> source)
         {
-            BlobBuilderArray<TagId> array = builder.Allocate(ref target, source.Count);
-            for (int index = 0; index < source.Count; index++)
-            {
-                array[index] = source[index];
-            }
+            var array = builder.Allocate(ref target, source.Count);
+            for (var index = 0; index < source.Count; index++) array[index] = source[index];
         }
 
-        static BuffDefinition Pack(
+        private static BuffDefinition Pack(
             BuffDefinitionData source,
             List<TagId> tags,
             List<BuffEffectBinding> effects,
@@ -401,7 +361,7 @@ namespace RebornFrame.Spell
                 DurationSteps = source.DurationSteps,
                 Requirement = source.Requirement == BuffTagQuery.None
                     ? BuffTagQuery.All
-                    : source.Requirement,
+                    : source.Requirement
             };
             definition.RequiredTagStart = tags.Count;
             AddTags(tags, source.RequiredTags);
@@ -430,65 +390,50 @@ namespace RebornFrame.Spell
             return definition;
         }
 
-        static void AddTags(List<TagId> target, List<TagId> source)
+        private static void AddTags(List<TagId> target, List<TagId> source)
         {
-            if (source == null)
-            {
-                return;
-            }
+            if (source == null) return;
 
-            for (int index = 0; index < source.Count; index++)
-            {
-                target.Add(source[index]);
-            }
+            for (var index = 0; index < source.Count; index++) target.Add(source[index]);
         }
 
-        static void AddEffects(
+        private static void AddEffects(
             List<BuffEffectBinding> effects,
             List<IMessage> runtimeEffects,
             List<byte> payloads,
             List<BuffEffectAuthoring> source)
         {
-            if (source == null)
-            {
-                return;
-            }
+            if (source == null) return;
 
-            for (int index = 0; index < source.Count; index++)
+            for (var index = 0; index < source.Count; index++)
             {
-                BuffEffectAuthoring effect = source[index];
-                byte[] payload = PayloadBytes(effect.Payload);
+                var effect = source[index];
+                var payload = PayloadBytes(effect.Payload);
                 effects.Add(new BuffEffectBinding
                 {
                     EffectId = effect.EffectId,
                     Version = effect.Version,
                     PayloadOffset = payloads.Count,
-                    PayloadLength = payload.Length,
+                    PayloadLength = payload.Length
                 });
                 runtimeEffects.Add(effect.Payload);
-                for (int byteIndex = 0; byteIndex < payload.Length; byteIndex++)
-                {
-                    payloads.Add(payload[byteIndex]);
-                }
+                for (var byteIndex = 0; byteIndex < payload.Length; byteIndex++) payloads.Add(payload[byteIndex]);
             }
         }
 
-        static void AddPeriodic(
+        private static void AddPeriodic(
             List<BuffPeriodicTriggerAuthoring> source,
             List<BuffEffectBinding> effects,
             List<IMessage> runtimeEffects,
             List<byte> payloads,
             List<BuffPeriodicTriggerDefinition> periodic)
         {
-            if (source == null)
-            {
-                return;
-            }
+            if (source == null) return;
 
-            for (int index = 0; index < source.Count; index++)
+            for (var index = 0; index < source.Count; index++)
             {
-                BuffPeriodicTriggerAuthoring trigger = source[index];
-                int start = effects.Count;
+                var trigger = source[index];
+                var start = effects.Count;
                 AddEffects(effects, runtimeEffects, payloads, trigger.Effects);
                 periodic.Add(new BuffPeriodicTriggerDefinition
                 {
@@ -496,12 +441,12 @@ namespace RebornFrame.Spell
                     IteratorId = trigger.IteratorId,
                     Interval = trigger.Interval,
                     EffectStart = start,
-                    EffectCount = effects.Count - start,
+                    EffectCount = effects.Count - start
                 });
             }
         }
 
-        static void AddSignals(
+        private static void AddSignals(
             List<BuffSignalTriggerAuthoring> source,
             List<TagId> tags,
             List<BuffEffectBinding> effects,
@@ -509,17 +454,14 @@ namespace RebornFrame.Spell
             List<byte> payloads,
             List<BuffSignalTriggerDefinition> signals)
         {
-            if (source == null)
-            {
-                return;
-            }
+            if (source == null) return;
 
-            for (int index = 0; index < source.Count; index++)
+            for (var index = 0; index < source.Count; index++)
             {
-                BuffSignalTriggerAuthoring trigger = source[index];
-                int tagStart = tags.Count;
+                var trigger = source[index];
+                var tagStart = tags.Count;
                 AddTags(tags, trigger.Tags);
-                int effectStart = effects.Count;
+                var effectStart = effects.Count;
                 AddEffects(effects, runtimeEffects, payloads, trigger.Effects);
                 signals.Add(new BuffSignalTriggerDefinition
                 {
@@ -529,18 +471,16 @@ namespace RebornFrame.Spell
                     TagStart = tagStart,
                     TagCount = tags.Count - tagStart,
                     EffectStart = effectStart,
-                    EffectCount = effects.Count - effectStart,
+                    EffectCount = effects.Count - effectStart
                 });
             }
         }
 
-        static void Validate(BuffDefinitionData definition)
+        private static void Validate(BuffDefinitionData definition)
         {
             if (definition.Id.Value == 0
                 || LibraryBuff.IsReserved(definition.Id.AuthorId, definition.Id.LocalId))
-            {
                 throw new ArgumentException($"Buff {definition.Id} 占用无效或库保留编号。");
-            }
 
             if (definition.DurationPolicy == BuffDurationPolicy.None
                 || definition.Identity == BuffStackIdentity.None
@@ -548,9 +488,7 @@ namespace RebornFrame.Spell
                 || definition.DurationMode == BuffDurationMode.None
                 || definition.RefreshPolicy == BuffRefreshPolicy.None
                 || definition.PeriodReset == BuffPeriodResetPolicy.None)
-            {
                 throw new ArgumentException($"Buff {definition.Id} 的策略未设置。");
-            }
 
             if (definition.DurationPolicy == BuffDurationPolicy.Instant)
             {
@@ -559,9 +497,7 @@ namespace RebornFrame.Spell
             else
             {
                 if (definition.MaxStacks < 1 || definition.MaxStacks > LibraryBuff.MaxStacks)
-                {
                     throw new ArgumentException($"Buff {definition.Id} 的叠层上限非法。");
-                }
             }
 
             if (definition.DurationPolicy == BuffDurationPolicy.Duration)
@@ -569,21 +505,20 @@ namespace RebornFrame.Spell
                 if (definition.DurationSteps < 1
                     || definition.DurationSteps > LibraryBuff.MaxDurationSteps
                     || definition.DurationIterator == LibraryBuff.NoneIterator)
-                {
                     throw new ArgumentException($"Buff {definition.Id} 的持续时钟非法。");
-                }
 
                 ValidateIterator(definition.DurationIterator);
             }
 
-            ValidateEffects(definition.Id, definition.CreateEffects, definition.DurationPolicy == BuffDurationPolicy.Instant);
+            ValidateEffects(definition.Id, definition.CreateEffects,
+                definition.DurationPolicy == BuffDurationPolicy.Instant);
             ValidateEffects(definition.Id, definition.UpdateEffects, false);
             ValidateEffects(definition.Id, definition.RemoveEffects, false);
             ValidatePeriodic(definition);
             ValidateSignals(definition);
         }
 
-        static void ValidateInstant(BuffDefinitionData definition)
+        private static void ValidateInstant(BuffDefinitionData definition)
         {
             if (definition.MaxStacks != 0
                 || definition.DurationSteps != 0
@@ -592,115 +527,85 @@ namespace RebornFrame.Spell
                 || (definition.SignalTriggers != null && definition.SignalTriggers.Count > 0)
                 || (definition.UpdateEffects != null && definition.UpdateEffects.Count > 0)
                 || (definition.RemoveEffects != null && definition.RemoveEffects.Count > 0))
-            {
                 throw new ArgumentException($"瞬时 Buff {definition.Id} 不能持有实例状态或结束效果。");
-            }
         }
 
-        static void ValidateIterator(BuffIteratorId iterator)
+        private static void ValidateIterator(BuffIteratorId iterator)
         {
-            if (iterator == LibraryBuff.NoneIterator)
-            {
-                throw new ArgumentException("迭代器不能为 0。");
-            }
+            if (iterator == LibraryBuff.NoneIterator) throw new ArgumentException("迭代器不能为 0。");
 
             if (iterator != LibraryBuff.FrameIterator
                 && iterator != LibraryBuff.RoundIterator
                 && LibraryBuff.IsReserved(iterator.AuthorId, iterator.LocalId))
-            {
                 throw new ArgumentException($"迭代器 {iterator} 占用未公开的库保留编号。");
-            }
         }
 
-        static void ValidateEffects(
+        private static void ValidateEffects(
             BuffId owner,
             List<BuffEffectAuthoring> effects,
             bool instant)
         {
-            if (effects == null)
-            {
-                return;
-            }
+            if (effects == null) return;
 
-            for (int index = 0; index < effects.Count; index++)
+            for (var index = 0; index < effects.Count; index++)
             {
-                BuffEffectAuthoring effect = effects[index];
-                if (effect.EffectId.Value == 0)
-                {
-                    throw new ArgumentException($"Buff {owner} 含有无效效果。");
-                }
+                var effect = effects[index];
+                if (effect.EffectId.Value == 0) throw new ArgumentException($"Buff {owner} 含有无效效果。");
 
-                bool library = LibraryBuff.IsReserved(effect.EffectId.AuthorId, effect.EffectId.LocalId);
+                var library = LibraryBuff.IsReserved(effect.EffectId.AuthorId, effect.EffectId.LocalId);
                 if (library && !IsBuiltinEffect(effect.EffectId))
-                {
                     throw new ArgumentException($"效果 {effect.EffectId} 占用未公开的库保留编号。");
-                }
 
                 if (IsBuiltinEffect(effect.EffectId)
                     && effect.Version != LibraryBuff.BuiltinPayloadVersion)
-                {
                     throw new ArgumentException($"效果 {effect.EffectId} 的载荷版本不正确。");
-                }
 
                 if (instant && effect.EffectId == LibraryBuff.GrantTagEffect)
-                {
                     throw new ArgumentException($"瞬时 Buff {owner} 不能登记 Tag。");
-                }
             }
         }
 
-        static bool IsBuiltinEffect(BuffEffectId effect)
+        private static bool IsBuiltinEffect(BuffEffectId effect)
         {
             return effect == LibraryBuff.AddModifierEffect
-                || effect == LibraryBuff.RequestCurrentValueEffect
-                || effect == LibraryBuff.GrantTagEffect
-                || effect == LibraryBuff.RemoveTagEffect;
+                   || effect == LibraryBuff.RequestCurrentValueEffect
+                   || effect == LibraryBuff.GrantTagEffect
+                   || effect == LibraryBuff.RemoveTagEffect;
         }
 
-        static void ValidatePeriodic(BuffDefinitionData definition)
+        private static void ValidatePeriodic(BuffDefinitionData definition)
         {
-            if (definition.PeriodicTriggers == null)
-            {
-                return;
-            }
+            if (definition.PeriodicTriggers == null) return;
 
-            for (int index = 0; index < definition.PeriodicTriggers.Count; index++)
+            for (var index = 0; index < definition.PeriodicTriggers.Count; index++)
             {
-                BuffPeriodicTriggerAuthoring trigger = definition.PeriodicTriggers[index];
-                if (trigger.Interval < 1)
-                {
-                    throw new ArgumentException($"Buff {definition.Id} 的周期间隔必须为正数。");
-                }
+                var trigger = definition.PeriodicTriggers[index];
+                if (trigger.Interval < 1) throw new ArgumentException($"Buff {definition.Id} 的周期间隔必须为正数。");
 
                 ValidateIterator(trigger.IteratorId);
                 ValidateEffects(definition.Id, trigger.Effects, false);
             }
         }
 
-        static void ValidateSignals(BuffDefinitionData definition)
+        private static void ValidateSignals(BuffDefinitionData definition)
         {
-            if (definition.SignalTriggers == null)
-            {
-                return;
-            }
+            if (definition.SignalTriggers == null) return;
 
-            for (int index = 0; index < definition.SignalTriggers.Count; index++)
+            for (var index = 0; index < definition.SignalTriggers.Count; index++)
             {
-                BuffSignalTriggerAuthoring trigger = definition.SignalTriggers[index];
+                var trigger = definition.SignalTriggers[index];
                 if (trigger.SignalId.Value == 0
                     || LibraryBuff.IsReserved(trigger.SignalId.AuthorId, trigger.SignalId.LocalId)
                     || trigger.Interval < 0)
-                {
                     throw new ArgumentException($"Buff {definition.Id} 的信号触发器非法。");
-                }
 
                 ValidateEffects(definition.Id, trigger.Effects, false);
             }
         }
 
-        static ulong HashDefinition(BuffDefinitionData definition)
+        private static ulong HashDefinition(BuffDefinitionData definition)
         {
-            ulong hash = FnvOffset;
+            var hash = FnvOffset;
             hash = Mix(hash, definition.Id.Value);
             hash = Mix(hash, (byte)definition.DurationPolicy);
             hash = Mix(hash, (byte)definition.Identity);
@@ -722,102 +627,90 @@ namespace RebornFrame.Spell
             hash = HashEffects(hash, definition.UpdateEffects);
             hash = HashEffects(hash, definition.RemoveEffects);
             if (definition.PeriodicTriggers != null)
-            {
-                for (int index = 0; index < definition.PeriodicTriggers.Count; index++)
+                for (var index = 0; index < definition.PeriodicTriggers.Count; index++)
                 {
-                    BuffPeriodicTriggerAuthoring trigger = definition.PeriodicTriggers[index];
+                    var trigger = definition.PeriodicTriggers[index];
                     hash = Mix(hash, (byte)trigger.Scope);
                     hash = Mix(hash, trigger.IteratorId.Value);
                     hash = Mix(hash, (uint)trigger.Interval);
                     hash = HashEffects(hash, trigger.Effects);
                 }
-            }
 
             if (definition.SignalTriggers != null)
-            {
-                for (int index = 0; index < definition.SignalTriggers.Count; index++)
+                for (var index = 0; index < definition.SignalTriggers.Count; index++)
                 {
-                    BuffSignalTriggerAuthoring trigger = definition.SignalTriggers[index];
+                    var trigger = definition.SignalTriggers[index];
                     hash = Mix(hash, trigger.SignalId.Value);
                     hash = Mix(hash, (uint)trigger.Interval);
                     hash = Mix(hash, (byte)trigger.Query);
                     hash = HashTags(hash, trigger.Tags);
                     hash = HashEffects(hash, trigger.Effects);
                 }
-            }
 
             return hash;
         }
 
-        static ulong HashTags(ulong hash, List<TagId> tags)
+        private static ulong HashTags(ulong hash, List<TagId> tags)
         {
-            if (tags == null)
-            {
-                return Mix(hash, 0U);
-            }
+            if (tags == null) return Mix(hash, 0U);
 
             hash = Mix(hash, (uint)tags.Count);
-            for (int index = 0; index < tags.Count; index++)
-            {
-                hash = Mix(hash, tags[index].Value);
-            }
+            for (var index = 0; index < tags.Count; index++) hash = Mix(hash, tags[index].Value);
 
             return hash;
         }
 
-        static ulong HashEffects(ulong hash, List<BuffEffectAuthoring> effects)
+        private static ulong HashEffects(ulong hash, List<BuffEffectAuthoring> effects)
         {
-            if (effects == null)
-            {
-                return Mix(hash, 0U);
-            }
+            if (effects == null) return Mix(hash, 0U);
 
             hash = Mix(hash, (uint)effects.Count);
-            for (int index = 0; index < effects.Count; index++)
+            for (var index = 0; index < effects.Count; index++)
             {
-                BuffEffectAuthoring effect = effects[index];
+                var effect = effects[index];
                 hash = Mix(hash, effect.EffectId.Value);
-                hash = Mix(hash, (uint)effect.Version);
-                byte[] payload = PayloadBytes(effect.Payload);
-                int length = payload.Length;
+                hash = Mix(hash, effect.Version);
+                var payload = PayloadBytes(effect.Payload);
+                var length = payload.Length;
                 hash = Mix(hash, (uint)length);
-                for (int byteIndex = 0; byteIndex < length; byteIndex++)
-                {
-                    hash = Mix(hash, payload[byteIndex]);
-                }
+                for (var byteIndex = 0; byteIndex < length; byteIndex++) hash = Mix(hash, payload[byteIndex]);
             }
 
             return hash;
         }
 
-        static ulong Mix(ulong hash, ulong value)
+        private static ulong Mix(ulong hash, ulong value)
         {
-            for (int index = 0; index < 8; index++)
-            {
-                hash = Mix(hash, (byte)(value >> (8 * index)));
-            }
+            for (var index = 0; index < 8; index++) hash = Mix(hash, (byte)(value >> (8 * index)));
 
             return hash;
         }
 
-        static ulong Mix(ulong hash, uint value)
+        private static ulong Mix(ulong hash, uint value)
         {
             return Mix(hash, (ulong)value);
         }
 
-        static ulong Mix(ulong hash, byte value)
+        private static ulong Mix(ulong hash, byte value)
         {
             return (hash ^ value) * FnvPrime;
         }
 
-        static byte[] PayloadBytes(IMessage payload)
+        private static byte[] PayloadBytes(IMessage payload)
         {
-            if (payload == null)
-            {
-                return Array.Empty<byte>();
-            }
+            if (payload == null) return Array.Empty<byte>();
 
             return payload.ToByteArray();
+        }
+
+        private sealed class DefinitionComparer : IComparer<BuffDefinitionData>
+        {
+            internal static readonly DefinitionComparer Instance = new();
+
+            public int Compare(BuffDefinitionData left, BuffDefinitionData right)
+            {
+                return left.Id.CompareTo(right.Id);
+            }
         }
     }
 }

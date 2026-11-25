@@ -5,7 +5,7 @@ using Unity.Entities;
 namespace RebornFrame.Spell
 {
     /// <summary>
-    /// 在全部修改器写回后，逐条应用未取消的资源当前值变化请求。
+    ///     在全部修改器写回后，逐条应用未取消的资源当前值变化请求。
     /// </summary>
     [BurstCompile]
     [DisableAutoCreation]
@@ -16,7 +16,7 @@ namespace RebornFrame.Spell
     public partial struct AttributeCurrentValueApplySystem : ISystem
     {
         /// <summary>
-        /// 按请求缓冲顺序应用变化，并把当前值限制到 0 与最大值之间。
+        ///     按请求缓冲顺序应用变化，并把当前值限制到 0 与最大值之间。
         /// </summary>
         /// <param name="state">系统状态。</param>
         [BurstCompile]
@@ -41,10 +41,10 @@ namespace RebornFrame.Spell
                     continue;
                 }
 
-                ref AttributeLayoutBlob layout = ref layoutReference.ValueRO.Value.Value;
-                for (int index = 0; index < requests.Length; index++)
+                ref var layout = ref layoutReference.ValueRO.Value.Value;
+                for (var index = 0; index < requests.Length; index++)
                 {
-                    AttributeCurrentValueRequest request = requests[index];
+                    var request = requests[index];
                     ResolveRequest(
                         ref layout,
                         values,
@@ -59,34 +59,34 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        /// 按固定优先级结算一条请求，并写入一条尚未编号的事件草稿。
+        ///     按固定优先级结算一条请求，并写入一条尚未编号的事件草稿。
         /// </summary>
         /// <param name="layout">单位属性布局。</param>
         /// <param name="values">单位属性值缓冲。</param>
         /// <param name="request">监听完成后的请求。</param>
         /// <param name="requestTags">当前批次的请求 Tag。</param>
         /// <param name="drafts">本批事件草稿。</param>
-        static void ResolveRequest(
+        private static void ResolveRequest(
             ref AttributeLayoutBlob layout,
             DynamicBuffer<AttributeValueSlot> values,
             in AttributeCurrentValueRequest request,
             DynamicBuffer<AttributeRequestTag> requestTags,
             DynamicBuffer<AttributeResolvedEventDraft> drafts)
         {
-            int slot = request.Slot;
-            AttributeResolvedEventKind resolvedKind =
+            var slot = request.Slot;
+            var resolvedKind =
                 AttributeResolvedEventKind.RequestRejected;
-            AttributeValueKind valueKind = AttributeValueKind.None;
+            var valueKind = AttributeValueKind.None;
             long oldBits = 0;
             long newBits = 0;
 
-            bool hasValidTarget = (uint)slot < (uint)values.Length
-                && (uint)slot < (uint)layout.Entries.Length;
+            var hasValidTarget = (uint)slot < (uint)values.Length
+                                 && (uint)slot < (uint)layout.Entries.Length;
             if (hasValidTarget)
             {
-                AttributeDefinition definition = layout.Entries[slot].Definition;
+                var definition = layout.Entries[slot].Definition;
                 valueKind = definition.ValueKind;
-                ref AttributeValueSlot value = ref values.ElementAt(slot);
+                ref var value = ref values.ElementAt(slot);
                 oldBits = value.CurrentBits;
                 newBits = oldBits;
 
@@ -109,11 +109,11 @@ namespace RebornFrame.Spell
                     }
                     else
                     {
-                        long added = definition.ValueKind == AttributeValueKind.Fixed64
+                        var added = definition.ValueKind == AttributeValueKind.Fixed64
                             ? (Fixed64.FromRaw(oldBits)
                                + Fixed64.FromRaw(request.DeltaBits)).m_rawValue
                             : WideMath.SaturatingAdd(oldBits, request.DeltaBits);
-                        long normalized =
+                        var normalized =
                             WideMath.Normalize(definition.ValueKind, added, true);
                         newBits = normalized > value.MaxBits
                             ? value.MaxBits
@@ -140,7 +140,7 @@ namespace RebornFrame.Spell
                 Target = AttributeValueTarget.Current,
                 OldBits = oldBits,
                 NewBits = newBits,
-                DeltaBits = request.DeltaBits,
+                DeltaBits = request.DeltaBits
             });
         }
     }
