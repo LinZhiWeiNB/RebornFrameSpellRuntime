@@ -58,7 +58,7 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        ///     读出全部法术里的 Buff。法术本身的其他字段还没有定义。
+        ///     读出全部法术里的 Buff。法术时间轴由 <see cref="Spells" /> 单独读出。
         /// </summary>
         /// <param name="data">一份法术模块数据。</param>
         /// <returns>Buff 定义。</returns>
@@ -75,6 +75,75 @@ namespace RebornFrame.Spell
                 var sources = data.Spells[spellIndex].Buffs;
                 for (var index = 0; index < sources.Count; index++) buffs.Add(Buff(sources[index]));
             }
+
+            return buffs;
+        }
+
+        /// <summary>
+        ///     读出带标识的法术。标识为 0 的条目只贡献 Buff，不注册时间轴。
+        /// </summary>
+        /// <param name="data">一份法术模块数据。</param>
+        /// <returns>法术定义。</returns>
+        public static List<SpellDefinitionData> Spells(SpellModuleData data)
+        {
+            var spells = new List<SpellDefinitionData>();
+            for (var index = 0; index < data.Spells.Count; index++)
+            {
+                var source = data.Spells[index];
+                if (source.Id == 0) continue;
+
+                spells.Add(Spell(source));
+            }
+
+            return spells;
+        }
+
+        private static SpellDefinitionData Spell(SpellData source)
+        {
+            var definition = new SpellDefinitionData
+            {
+                Id = new SpellId(source.Id),
+                Activation = (SpellActivation)source.Activation,
+                DurationFrames = source.DurationFrames,
+                CooldownFrames = source.CooldownFrames,
+                Admission = (BuffTagQuery)source.Admission,
+                AdmissionTags = TagIds(source.AdmissionTags),
+                Events = SpellEvents(source.Events)
+            };
+            if (source.EndEvent != null && source.EndEvent.Trigger != 0) definition.EndEvent = SpellEvent(source.EndEvent);
+
+            return definition;
+        }
+
+        private static List<SpellEventAuthoring> SpellEvents(RepeatedField<SpellEventConfig> source)
+        {
+            var events = new List<SpellEventAuthoring>(source.Count);
+            for (var index = 0; index < source.Count; index++) events.Add(SpellEvent(source[index]));
+
+            return events;
+        }
+
+        private static SpellEventAuthoring SpellEvent(SpellEventConfig source)
+        {
+            return new SpellEventAuthoring
+            {
+                Trigger = (SpellEventTrigger)source.Trigger,
+                Frame = source.Frame,
+                SignalId = new BuffSignalId(source.SignalId),
+                CooldownFrames = source.CooldownFrames,
+                Condition = (BuffTagQuery)source.Condition,
+                ConditionTags = TagIds(source.ConditionTags),
+                TargetFilter = (BuffTagQuery)source.TargetFilter,
+                TargetFilterTags = TagIds(source.TargetFilterTags),
+                Pick = new SpellPickId(source.Pick),
+                Buffs = BuffIds(source.BuffIds)
+            };
+        }
+
+        private static List<BuffId> BuffIds(RepeatedField<ulong> source)
+        {
+            var buffs = new List<BuffId>(source.Count);
+            for (var index = 0; index < source.Count; index++) buffs.Add(new BuffId(source[index]));
 
             return buffs;
         }
