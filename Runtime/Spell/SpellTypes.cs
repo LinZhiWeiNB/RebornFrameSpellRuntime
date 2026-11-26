@@ -64,7 +64,7 @@ namespace RebornFrame.Spell
         /// <summary>事件已经向目标提交 Buff。</summary>
         EventApplied = 2,
 
-        /// <summary>事件条件失败、拾取失败或目标为空。</summary>
+        /// <summary>持有者条件失败，或没有收集到目标。</summary>
         EventSkipped = 3,
 
         /// <summary>实例已经结束。</summary>
@@ -93,9 +93,6 @@ namespace RebornFrame.Spell
 
         /// <summary>持有者稳定 ID。</summary>
         public ulong OwnerStableId;
-
-        /// <summary>施法时的主目标。没有时为 0。</summary>
-        public ulong PrimaryTargetStableId;
 
         /// <summary>结果种类。</summary>
         public SpellResolvedEventKind Kind;
@@ -130,17 +127,28 @@ namespace RebornFrame.Spell
         /// </summary>
         public int Frame;
 
-        /// <summary>目标拾取。</summary>
-        public SpellPickId Pick;
+        /// <summary>
+        ///     收集时的层级匹配。None 表示向下匹配。
+        /// </summary>
+        public TagMatch Match;
+
+        /// <summary>
+        ///     收集时是否跳过施法标记核对。0 核对这次施法 ID，1 不核对。
+        /// </summary>
+        public int IgnoreCastMask;
 
         /// <summary>信号触发监听的信号。其余触发必须为 0。</summary>
         public BuffSignalId SignalId;
 
-        /// <summary>每个目标再过滤一次的组合方式。没有过滤 Tag 时为 None。</summary>
-        public BuffTagQuery TargetFilter;
+        /// <summary>
+        ///     收集命中后附加的条件。同一个目标上的条件全部通过才保留该目标。
+        /// </summary>
+        public List<SpellConditionAuthoring> TargetConditions = new();
 
-        /// <summary>目标过滤 Tag。</summary>
-        public List<TagId> TargetFilterTags = new();
+        /// <summary>
+        ///     这次事件要收集的 Tag。单位命中其中任一 Tag 即进入条件检查。
+        /// </summary>
+        public List<TagId> Tags = new();
 
         /// <summary>就绪方式。</summary>
         public SpellEventTrigger Trigger;
@@ -168,7 +176,7 @@ namespace RebornFrame.Spell
         /// </summary>
         public int DurationFrames;
 
-        /// <summary>可选的结束事件。null 表示结束时不再拾取目标。</summary>
+        /// <summary>可选的结束事件。null 表示结束时不再收集目标。</summary>
         public SpellEventAuthoring EndEvent;
 
         /// <summary>按配置顺序执行的时间轴事件。</summary>
@@ -197,34 +205,13 @@ namespace RebornFrame.Spell
         public SpellPresentationTrackId TypeId;
     }
 
-    /// <summary>内置拾取和后续玩法拾取都能看到的上下文。</summary>
-    public struct SpellPickContext
+    /// <summary>收集到单位后要检查的一条条件。</summary>
+    public sealed class SpellConditionAuthoring
     {
-        /// <summary>已走帧数。</summary>
-        public int ElapsedFrames;
+        /// <summary>条件参数。空数组表示没有参数。</summary>
+        public byte[] Parameters = Array.Empty<byte>();
 
-        /// <summary>法术实例。</summary>
-        public long InstanceId;
-
-        /// <summary>持有者稳定 ID。</summary>
-        public ulong OwnerStableId;
-
-        /// <summary>本次使用的拾取标识。</summary>
-        public SpellPickId Pick;
-
-        /// <summary>施法时冻结的主目标。没有时为 0。</summary>
-        public ulong PrimaryTargetStableId;
-
-        /// <summary>当前信号。不是信号触发时为 0。</summary>
-        public BuffSignalId SignalId;
-
-        /// <summary>当前信号的来源。不是信号触发时为 0。</summary>
-        public ulong SignalSourceStableId;
-
-        /// <summary>当前信号的主体。不是信号触发时为 0。</summary>
-        public ulong SignalSubjectStableId;
-
-        /// <summary>法术定义。</summary>
-        public SpellId SpellId;
+        /// <summary>条件类型。</summary>
+        public ConditionTypeId Type;
     }
 }

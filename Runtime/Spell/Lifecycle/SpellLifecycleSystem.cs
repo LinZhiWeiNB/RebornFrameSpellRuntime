@@ -20,22 +20,6 @@ namespace RebornFrame.Spell
         }
     }
 
-    /// <summary>显式目标在读出时按提交顺序排列。</summary>
-    internal struct SpellOrderedTarget : IComparable<SpellOrderedTarget>
-    {
-        /// <summary>提交顺序。</summary>
-        public int Order;
-
-        /// <summary>目标稳定 ID。</summary>
-        public ulong Target;
-
-        /// <inheritdoc />
-        public int CompareTo(SpellOrderedTarget other)
-        {
-            return Order.CompareTo(other.Order);
-        }
-    }
-
     /// <summary>
     ///     推进一帧法术时间轴。顺序是冷却递减、开始、取消、旧实例前进、信号、结束只活开始帧的主动法术。
     ///     本帧新建的实例不前进，但会听到本帧信号。
@@ -47,13 +31,11 @@ namespace RebornFrame.Spell
         private NativeList<byte> _aim;
         private NativeList<PendingSpellCancelRequest> _cancels;
         private NativeList<PendingSpellCastRequest> _casts;
-        private NativeList<ulong> _explicit;
         private NativeList<PendingSpellGrantRequest> _grants;
         private NativeList<long> _instanceIds;
-        private NativeList<ulong> _listed;
-        private NativeList<SpellOrderedTarget> _ordered;
         private NativeList<byte> _signalBytes;
         private NativeList<PendingSpellSignalRequest> _signals;
+        private NativeList<ulong> _conditionRequests;
         private NativeList<ulong> _targets;
         private NativeList<SpellUnitRef> _units;
 
@@ -68,13 +50,11 @@ namespace RebornFrame.Spell
             _grants = new NativeList<PendingSpellGrantRequest>(16, Allocator.Persistent);
             _cancels = new NativeList<PendingSpellCancelRequest>(16, Allocator.Persistent);
             _signals = new NativeList<PendingSpellSignalRequest>(16, Allocator.Persistent);
-            _listed = new NativeList<ulong>(32, Allocator.Persistent);
             _aim = new NativeList<byte>(64, Allocator.Persistent);
             _signalBytes = new NativeList<byte>(64, Allocator.Persistent);
             _instanceIds = new NativeList<long>(16, Allocator.Persistent);
-            _explicit = new NativeList<ulong>(16, Allocator.Persistent);
-            _ordered = new NativeList<SpellOrderedTarget>(16, Allocator.Persistent);
             _targets = new NativeList<ulong>(16, Allocator.Persistent);
+            _conditionRequests = new NativeList<ulong>(16, Allocator.Persistent);
         }
 
         /// <summary>
@@ -88,13 +68,11 @@ namespace RebornFrame.Spell
             Dispose(ref _grants);
             Dispose(ref _cancels);
             Dispose(ref _signals);
-            Dispose(ref _listed);
             Dispose(ref _aim);
             Dispose(ref _signalBytes);
             Dispose(ref _instanceIds);
-            Dispose(ref _explicit);
-            Dispose(ref _ordered);
             Dispose(ref _targets);
+            Dispose(ref _conditionRequests);
         }
 
         /// <summary>
@@ -222,11 +200,6 @@ namespace RebornFrame.Spell
             for (var index = 0; index < pending.Length; index++) _casts.Add(pending[index]);
 
             pending.Clear();
-            var listed = entityManager.GetBuffer<PendingSpellExplicitTarget>(singleton);
-            _listed.Clear();
-            for (var index = 0; index < listed.Length; index++) _listed.Add(listed[index].Target);
-
-            listed.Clear();
             var aim = entityManager.GetBuffer<PendingSpellAimByte>(singleton);
             _aim.Clear();
             for (var index = 0; index < aim.Length; index++) _aim.Add(aim[index].Value);
@@ -244,9 +217,9 @@ namespace RebornFrame.Spell
             for (var index = 0; index < _casts.Length; index++)
             {
                 var request = _casts[index];
-                if (!SliceFits(request.ExplicitOffset, request.ExplicitCount, _listed.Length)
-                    || !SliceFits(request.AimOffset, request.AimLength, _aim.Length))
+                if (!SliceFits(request.AimOffset, request.AimLength, _aim.Length))
                 {
+                    RemoveCastMark(entityManager, request.CastMark);
                     RejectStart(entityManager, singleton, request.RequestId, request.SpellId, request.OwnerStableId);
                     continue;
                 }
@@ -259,9 +232,7 @@ namespace RebornFrame.Spell
                     request.RequestId,
                     request.SpellId,
                     request.OwnerStableId,
-                    request.PrimaryTargetStableId,
-                    request.ExplicitOffset,
-                    request.ExplicitCount,
+                    request.CastMark,
                     request.AimOffset,
                     request.AimLength,
                     SpellActivation.Active);
@@ -295,9 +266,7 @@ namespace RebornFrame.Spell
                     request.RequestId,
                     request.SpellId,
                     request.OwnerStableId,
-                    0,
-                    0,
-                    0,
+                    request.CastMark,
                     0,
                     0,
                     SpellActivation.Passive);
@@ -312,9 +281,7 @@ namespace RebornFrame.Spell
             ulong requestId,
             SpellId spellId,
             ulong ownerStableId,
-            ulong primaryTarget,
-            int explicitOffset,
-            int explicitCount,
+            long castMark,
             int aimOffset,
             int aimLength,
             SpellActivation expected)
@@ -323,6 +290,7 @@ namespace RebornFrame.Spell
             if (unitIndex < 0
                 || !SpellCatalog.TryFindDefinitionIndex(catalog, spellId, out var definitionIndex))
             {
+                RemoveCastMark(entityManager, castMark);
                 RejectStart(entityManager, singleton, requestId, spellId, ownerStableId);
                 return;
             }
@@ -341,6 +309,7 @@ namespace RebornFrame.Spell
                     definition.AdmissionStart,
                     definition.AdmissionCount))
             {
+                RemoveCastMark(entityManager, castMark);
                 RejectStart(entityManager, entity, requestId, spellId, ownerStableId);
                 return;
             }
@@ -353,18 +322,10 @@ namespace RebornFrame.Spell
                 SpellId = spellId,
                 Activation = definition.Activation,
                 OwnerStableId = ownerStableId,
-                PrimaryTargetStableId = primaryTarget,
+                CastMark = castMark,
                 DurationFrames = definition.DurationFrames,
                 Born = 1
             });
-            for (var index = 0; index < explicitCount; index++)
-                entityManager.GetBuffer<SpellExplicitTargetElement>(entity).Add(new SpellExplicitTargetElement
-                {
-                    InstanceId = instanceId,
-                    Order = index,
-                    Target = _listed[explicitOffset + index]
-                });
-
             for (var index = 0; index < aimLength; index++)
                 entityManager.GetBuffer<SpellAimByteElement>(entity).Add(new SpellAimByteElement
                 {
@@ -381,7 +342,6 @@ namespace RebornFrame.Spell
                 InstanceId = instanceId,
                 SpellId = spellId,
                 OwnerStableId = ownerStableId,
-                PrimaryTargetStableId = primaryTarget,
                 Kind = SpellResolvedEventKind.Started,
                 EventIndex = LibrarySpell.NoEventIndex
             });
@@ -415,9 +375,7 @@ namespace RebornFrame.Spell
                     instance,
                     evt,
                     eventIndex,
-                    requestId,
-                    default,
-                    false);
+                    requestId);
             }
         }
 
@@ -534,9 +492,7 @@ namespace RebornFrame.Spell
                         instance,
                         evt,
                         eventIndex,
-                        0,
-                        default,
-                        false)
+                        0)
                     && evt.CooldownFrames > 0)
                     SetEventCooldown(entityManager, entity, instance.InstanceId, eventIndex, evt.CooldownFrames);
             }
@@ -618,9 +574,7 @@ namespace RebornFrame.Spell
                         instance,
                         evt,
                         eventIndex,
-                        signal.RequestId,
-                        signal,
-                        true)
+                        signal.RequestId)
                     && evt.CooldownFrames > 0)
                     SetEventCooldown(entityManager, entity, instance.InstanceId, eventIndex, evt.CooldownFrames);
             }
@@ -677,9 +631,7 @@ namespace RebornFrame.Spell
             SpellInstanceElement instance,
             SpellEventDefinition evt,
             int eventIndex,
-            ulong requestId,
-            PendingSpellSignalRequest signal,
-            bool hasSignal)
+            ulong requestId)
         {
             if (!TagsMatch(
                     entityManager,
@@ -694,27 +646,9 @@ namespace RebornFrame.Spell
                 return false;
             }
 
-            LoadExplicit(entityManager, entity, instance.InstanceId);
-            var context = new SpellPickContext
-            {
-                Pick = evt.Pick,
-                InstanceId = instance.InstanceId,
-                SpellId = instance.SpellId,
-                OwnerStableId = instance.OwnerStableId,
-                PrimaryTargetStableId = instance.PrimaryTargetStableId,
-                ElapsedFrames = instance.ElapsedFrames,
-                SignalId = hasSignal ? signal.SignalId : default,
-                SignalSourceStableId = hasSignal ? signal.SourceStableId : 0,
-                SignalSubjectStableId = hasSignal ? signal.SubjectStableId : 0
-            };
             _targets.Clear();
-            if (!SpellBuiltinPicks.TryFill(in context, _explicit, _targets))
-            {
-                PublishSkipped(entityManager, entity, instance, eventIndex, requestId);
-                return false;
-            }
-
-            FilterTargets(entityManager, tags, catalog, evt);
+            CollectTags(entityManager, tags, catalog, evt, instance.CastMark);
+            ConfirmConditions(entityManager, entity, catalog, evt);
             if (_targets.Length == 0)
             {
                 PublishSkipped(entityManager, entity, instance, eventIndex, requestId);
@@ -745,35 +679,128 @@ namespace RebornFrame.Spell
             return true;
         }
 
-        private void FilterTargets(
+        private void CollectTags(
             EntityManager entityManager,
             BlobAssetReference<TagCatalogBlob> tags,
             BlobAssetReference<SpellCatalogBlob> catalog,
+            SpellEventDefinition evt,
+            long castMark)
+        {
+            if (evt.TagCount == 0) return;
+
+            var checkMask = evt.IgnoreCastMask == 0;
+            if (checkMask && castMark <= 0) return;
+
+            var mode = evt.Match == TagMatch.None ? TagMatch.Downward : evt.Match;
+            for (var unitIndex = 0; unitIndex < _units.Length; unitIndex++)
+            {
+                if (!AnyTagMatches(
+                        entityManager,
+                        _units[unitIndex].Entity,
+                        tags,
+                        catalog,
+                        evt,
+                        mode,
+                        checkMask ? castMark : 0))
+                    continue;
+
+                _targets.Add(_units[unitIndex].StableId);
+            }
+        }
+
+        private static bool AnyTagMatches(
+            EntityManager entityManager,
+            Entity entity,
+            BlobAssetReference<TagCatalogBlob> tags,
+            BlobAssetReference<SpellCatalogBlob> catalog,
+            SpellEventDefinition evt,
+            TagMatch mode,
+            long castMark)
+        {
+            for (var index = 0; index < evt.TagCount; index++)
+            {
+                var tag = catalog.Value.Tags[evt.TagStart + index];
+                var matched = castMark > 0
+                    ? BuffAccess.MatchesCastTag(entityManager, entity, tag, mode, castMark, tags)
+                    : BuffAccess.MatchesTag(entityManager, entity, tag, mode, tags);
+                if (matched) return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        ///     给收集到的单位写入条件。全部条件通过后才保留该单位。
+        /// </summary>
+        private void ConfirmConditions(
+            EntityManager entityManager,
+            Entity source,
+            BlobAssetReference<SpellCatalogBlob> catalog,
             SpellEventDefinition evt)
         {
+            if (evt.TargetConditionCount == 0 || _targets.Length == 0) return;
+
+            if (!SliceFits(
+                    evt.TargetConditionStart,
+                    evt.TargetConditionCount,
+                    catalog.Value.ConditionChecks.Length))
+            {
+                _targets.Clear();
+                return;
+            }
+
+            _conditionRequests.Clear();
+            for (var index = 0; index < _targets.Length; index++)
+            {
+                var target = _targets[index];
+                var unitIndex = IndexOf(target);
+                if (unitIndex < 0)
+                {
+                    _conditionRequests.Add(0);
+                    continue;
+                }
+
+                var requestId = ConditionAccess.AllocateRequestId(entityManager);
+                _conditionRequests.Add(requestId);
+                var targetEntity = _units[unitIndex].Entity;
+                ref var blob = ref catalog.Value;
+                for (var conditionIndex = 0; conditionIndex < evt.TargetConditionCount; conditionIndex++)
+                {
+                    var condition = blob.ConditionChecks[evt.TargetConditionStart + conditionIndex];
+                    ConditionAccess.Add(
+                        entityManager,
+                        targetEntity,
+                        requestId,
+                        condition.Type,
+                        source,
+                        ref blob.Parameters,
+                        condition.ParameterStart,
+                        condition.ParameterCount);
+                }
+            }
+
+            ConditionAccess.Evaluate(entityManager.World);
             var write = 0;
             for (var index = 0; index < _targets.Length; index++)
             {
                 var target = _targets[index];
-                if (target == 0) continue;
-
-                if (evt.TargetFilterCount > 0)
+                var requestId = _conditionRequests[index];
+                var unitIndex = requestId == 0 ? -1 : IndexOf(target);
+                var passed = false;
+                if (unitIndex >= 0
+                    && ConditionAccess.TryGetResult(
+                        entityManager,
+                        _units[unitIndex].Entity,
+                        requestId,
+                        out passed)
+                    && passed)
                 {
-                    var unitIndex = IndexOf(target);
-                    if (unitIndex < 0
-                        || !TagsMatch(
-                            entityManager,
-                            _units[unitIndex].Entity,
-                            tags,
-                            catalog,
-                            evt.TargetFilter,
-                            evt.TargetFilterStart,
-                            evt.TargetFilterCount))
-                        continue;
+                    _targets[write] = target;
+                    write++;
                 }
 
-                _targets[write] = target;
-                write++;
+                if (unitIndex >= 0)
+                    ConditionAccess.Remove(entityManager, _units[unitIndex].Entity, requestId);
             }
 
             _targets.Resize(write, NativeArrayOptions.UninitializedMemory);
@@ -800,9 +827,7 @@ namespace RebornFrame.Spell
                     instance,
                     definition.EndEvent,
                     LibrarySpell.EndEventIndex,
-                    requestId,
-                    default,
-                    false);
+                    requestId);
 
             Publish(entityManager, entity, singleton, new SpellResolvedEvent
             {
@@ -810,29 +835,12 @@ namespace RebornFrame.Spell
                 InstanceId = instance.InstanceId,
                 SpellId = instance.SpellId,
                 OwnerStableId = instance.OwnerStableId,
-                PrimaryTargetStableId = instance.PrimaryTargetStableId,
                 Kind = SpellResolvedEventKind.Ended,
                 EventIndex = LibrarySpell.NoEventIndex,
                 EndReason = reason
             });
+            // 走完、取消、收回都从这里结束，并清掉标记等于这次施法 ID 的 Tag。
             RemoveInstance(entityManager, entity, instance.InstanceId);
-        }
-
-        private void LoadExplicit(EntityManager entityManager, Entity entity, long instanceId)
-        {
-            _ordered.Clear();
-            var buffer = entityManager.GetBuffer<SpellExplicitTargetElement>(entity);
-            for (var index = 0; index < buffer.Length; index++)
-            {
-                var target = buffer[index];
-                if (target.InstanceId != instanceId) continue;
-
-                _ordered.Add(new SpellOrderedTarget { Order = target.Order, Target = target.Target });
-            }
-
-            _ordered.Sort();
-            _explicit.Clear();
-            for (var index = 0; index < _ordered.Length; index++) _explicit.Add(_ordered[index].Target);
         }
 
         private void CollectInstanceIds(EntityManager entityManager, Entity entity)
@@ -982,9 +990,13 @@ namespace RebornFrame.Spell
             });
         }
 
-        private static void RemoveInstance(EntityManager entityManager, Entity entity, long instanceId)
+        private void RemoveInstance(EntityManager entityManager, Entity entity, long instanceId)
         {
-            RemoveExplicit(entityManager, entity, instanceId);
+            var castMark = 0L;
+            if (TryFindInstance(entityManager, entity, instanceId, out _, out var instance))
+                castMark = instance.CastMark;
+
+            RemoveCastMark(entityManager, castMark);
             RemoveAim(entityManager, entity, instanceId);
             RemoveEventCooldowns(entityManager, entity, instanceId);
             if (!TryFindInstance(entityManager, entity, instanceId, out var index, out _)) return;
@@ -992,12 +1004,27 @@ namespace RebornFrame.Spell
             entityManager.GetBuffer<SpellInstanceElement>(entity).RemoveAt(index);
         }
 
-        private static void RemoveExplicit(EntityManager entityManager, Entity entity, long instanceId)
+        /// <summary>清掉所有单位上标记等于这次施法 ID 的 Tag。</summary>
+        private void RemoveCastMark(EntityManager entityManager, long castMark)
         {
-            var buffer = entityManager.GetBuffer<SpellExplicitTargetElement>(entity);
-            for (var index = buffer.Length - 1; index >= 0; index--)
-                if (buffer[index].InstanceId == instanceId)
+            if (castMark <= 0) return;
+
+            for (var unitIndex = 0; unitIndex < _units.Length; unitIndex++)
+            {
+                var entity = _units[unitIndex].Entity;
+                if (!entityManager.HasBuffer<GameplayTagContribution>(entity)) continue;
+
+                var buffer = entityManager.GetBuffer<GameplayTagContribution>(entity);
+                for (var index = buffer.Length - 1; index >= 0; index--)
+                {
+                    var contribution = buffer[index];
+                    if (contribution.SourceKind != GameplayTagSourceKind.SpellCast
+                        || contribution.SourceId != castMark)
+                        continue;
+
                     buffer.RemoveAt(index);
+                }
+            }
         }
 
         private static void RemoveAim(EntityManager entityManager, Entity entity, long instanceId)

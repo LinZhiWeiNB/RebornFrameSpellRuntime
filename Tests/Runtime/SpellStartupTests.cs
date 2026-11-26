@@ -47,12 +47,13 @@ namespace RebornFrame.Spell.Tests
         }
 
         /// <summary>
-        ///     验证同一 Tag 的冲突父节点会在启动时失败，并且不留下目录单例。
+        ///     验证后加入的 Tag 覆盖先加入的父节点。
         /// </summary>
         [Test]
-        public void Start_ConflictingTag_LeavesWorldUntouched()
+        public void Start_LaterTag_ReplacesParent()
         {
-            var world = new World(nameof(Start_ConflictingTag_LeavesWorldUntouched));
+            var parent = TagId.Combine(1, 2);
+            var world = new World(nameof(Start_LaterTag_ReplacesParent));
             var startup = new SpellStartup();
             try
             {
@@ -62,13 +63,14 @@ namespace RebornFrame.Spell.Tests
                 });
                 startup.AddTags(new[]
                 {
-                    new TagDefinition { Id = Attack, ParentId = TagId.Combine(1, 2) }
+                    new TagDefinition { Id = parent, ParentId = LibraryTags.None },
+                    new TagDefinition { Id = Attack, ParentId = parent }
                 });
+                startup.Start(world);
 
-                Assert.Throws<ArgumentException>(() => startup.Start(world));
-                Assert.IsFalse(AttributeAccess.TryGetTagCatalog(
-                    world.EntityManager,
-                    out _));
+                Assert.IsTrue(AttributeAccess.TryGetTagCatalog(world.EntityManager, out var catalog));
+                Assert.IsTrue(TagCatalog.TryFindDefinition(catalog, Attack, out var definition));
+                Assert.AreEqual(parent, definition.ParentId);
             }
             finally
             {
@@ -201,6 +203,127 @@ namespace RebornFrame.Spell.Tests
                     new BuffId(BuffId.Combine(2, 1).Value),
                     1,
                     1));
+            }
+            finally
+            {
+                startup.Dispose();
+                world.Dispose();
+            }
+        }
+
+        /// <summary>
+        ///     验证后加载的模块覆盖相同 ID 的属性、默认值、Tag、Buff 和法术。
+        /// </summary>
+        [Test]
+        public void AddModuleData_LaterDefinition_ReplacesSameId()
+        {
+            var buff = BuffId.Combine(1, 1);
+            var spell = SpellId.Combine(1, 1);
+            var parent = TagId.Combine(1, 2);
+            var first = new SpellModuleData
+            {
+                Tags = { new TagDefinitionConfig { Id = Attack.Value, ParentId = LibraryTags.None.Value } },
+                Attributes =
+                {
+                    new AttributeDefinitionConfig
+                    {
+                        Id = Power.Value,
+                        ValueKind = (int)AttributeValueKind.Int32,
+                        Behavior = (int)AttributeBehavior.Numeric
+                    }
+                },
+                AttributeLayout =
+                {
+                    new UnitAttributeDefaultConfig
+                    {
+                        AttributeId = Power.Value,
+                        ValueKind = (int)AttributeValueKind.Int32,
+                        Raw = 10
+                    }
+                },
+                Buffs = { InfiniteBuff(buff.Value) },
+                Spells =
+                {
+                    new SpellData
+                    {
+                        Id = spell.Value,
+                        Activation = (int)SpellActivation.Active,
+                        DurationFrames = 3
+                    }
+                }
+            };
+            var replacement = InfiniteBuff(buff.Value);
+            replacement.MaxStacks = 4;
+            var second = new SpellModuleData
+            {
+                Tags =
+                {
+                    new TagDefinitionConfig { Id = parent.Value, ParentId = LibraryTags.None.Value },
+                    new TagDefinitionConfig { Id = Attack.Value, ParentId = parent.Value }
+                },
+                Attributes =
+                {
+                    new AttributeDefinitionConfig
+                    {
+                        Id = Power.Value,
+                        ValueKind = (int)AttributeValueKind.Int32,
+                        Behavior = (int)AttributeBehavior.Marker,
+                        NonNegative = true
+                    }
+                },
+                AttributeLayout =
+                {
+                    new UnitAttributeDefaultConfig
+                    {
+                        AttributeId = Power.Value,
+                        ValueKind = (int)AttributeValueKind.Int32,
+                        Raw = 40
+                    }
+                },
+                Buffs = { replacement },
+                Spells =
+                {
+                    new SpellData
+                    {
+                        Id = spell.Value,
+                        Activation = (int)SpellActivation.Active,
+                        DurationFrames = 9
+                    }
+                }
+            };
+
+            var world = new World(nameof(AddModuleData_LaterDefinition_ReplacesSameId));
+            var startup = new SpellStartup();
+            try
+            {
+                startup.AddModuleData(first);
+                startup.AddModuleData(second);
+                startup.Start(world);
+
+                var entityManager = world.EntityManager;
+                Assert.IsTrue(AttributeAccess.TryGetTagCatalog(entityManager, out var tags));
+                Assert.IsTrue(TagCatalog.TryFindDefinition(tags, Attack, out var tag));
+                Assert.AreEqual(parent, tag.ParentId);
+
+                using var attributeQuery = entityManager.CreateEntityQuery(typeof(AttributeCatalogReference));
+                var attributes = attributeQuery.GetSingleton<AttributeCatalogReference>().Value;
+                Assert.IsTrue(AttributeCatalog.TryFindDefinition(attributes, Power, out var attribute));
+                Assert.AreEqual(AttributeBehavior.Marker, attribute.Behavior);
+
+                var unit = entityManager.CreateEntity();
+                startup.InitializeUnit(unit, 1);
+                Assert.IsTrue(AttributeAccess.TryRead(entityManager, unit, Power, out var value));
+                Assert.AreEqual(40, value.CurrentBits);
+
+                using var buffQuery = entityManager.CreateEntityQuery(typeof(BuffCatalogReference));
+                var buffs = buffQuery.GetSingleton<BuffCatalogReference>().Value;
+                Assert.IsTrue(BuffCatalog.TryFindDefinitionIndex(buffs, buff, out var buffIndex));
+                Assert.AreEqual(4, buffs.Value.Definitions[buffIndex].MaxStacks);
+
+                using var spellQuery = entityManager.CreateEntityQuery(typeof(SpellCatalogReference));
+                var spells = spellQuery.GetSingleton<SpellCatalogReference>().Value;
+                Assert.IsTrue(SpellCatalog.TryFindDefinitionIndex(spells, spell, out var spellIndex));
+                Assert.AreEqual(9, spells.Value.Definitions[spellIndex].DurationFrames);
             }
             finally
             {

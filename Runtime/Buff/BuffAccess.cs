@@ -277,6 +277,71 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
+        ///     判断单位携带的任一 Tag 是否按指定方式命中查询 Tag。
+        /// </summary>
+        /// <param name="entityManager">单位所在 World 的实体管理器。</param>
+        /// <param name="entity">已经初始化 Buff 的单位。</param>
+        /// <param name="query">查询 Tag。</param>
+        /// <param name="mode">精确、向上、向下或任意。</param>
+        /// <param name="catalog">用于层级匹配的 Tag 目录。</param>
+        /// <returns>至少一条贡献命中时为 true。</returns>
+        public static bool MatchesTag(
+            EntityManager entityManager,
+            Entity entity,
+            TagId query,
+            TagMatch mode,
+            BlobAssetReference<TagCatalogBlob> catalog)
+        {
+            if (!ConditionTagParameters.IsHierarchy(mode) || query == LibraryTags.None) return false;
+
+            if (!entityManager.HasBuffer<GameplayTagContribution>(entity)) return false;
+
+            var tags = entityManager.GetBuffer<GameplayTagContribution>(entity);
+            for (var index = 0; index < tags.Length; index++)
+                if (TagCatalog.Matches(catalog, tags[index].Tag, query, mode))
+                    return true;
+
+            return false;
+        }
+
+        /// <summary>
+        ///     判断单位是否带着某一次施法标记挂上的、并按指定方式命中查询 Tag 的贡献。
+        /// </summary>
+        /// <param name="entityManager">单位所在 World 的实体管理器。</param>
+        /// <param name="entity">已经初始化 Buff 的单位。</param>
+        /// <param name="query">查询 Tag。</param>
+        /// <param name="mode">精确、向上、向下或任意。</param>
+        /// <param name="castMark">施法标记。0 不能命中。</param>
+        /// <param name="catalog">用于层级匹配的 Tag 目录。</param>
+        /// <returns>这一次施法的贡献命中时为 true。</returns>
+        public static bool MatchesCastTag(
+            EntityManager entityManager,
+            Entity entity,
+            TagId query,
+            TagMatch mode,
+            long castMark,
+            BlobAssetReference<TagCatalogBlob> catalog)
+        {
+            if (castMark <= 0 || !ConditionTagParameters.IsHierarchy(mode) || query == LibraryTags.None)
+                return false;
+
+            if (!entityManager.HasBuffer<GameplayTagContribution>(entity)) return false;
+
+            var tags = entityManager.GetBuffer<GameplayTagContribution>(entity);
+            for (var index = 0; index < tags.Length; index++)
+            {
+                var contribution = tags[index];
+                if (contribution.SourceKind != GameplayTagSourceKind.SpellCast
+                    || contribution.SourceId != castMark)
+                    continue;
+
+                if (TagCatalog.Matches(catalog, contribution.Tag, query, mode)) return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
         ///     读取目录的一致性哈希。
         /// </summary>
         /// <param name="entityManager">目标 World 的实体管理器。</param>

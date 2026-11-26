@@ -29,17 +29,23 @@ namespace RebornFrame.Spell
         /// <summary>持有者条件 Tag 数量。</summary>
         public int ConditionCount;
 
-        /// <summary>目标过滤组合。</summary>
-        public BuffTagQuery TargetFilter;
+        /// <summary>收集 Tag 的起点。</summary>
+        public int TagStart;
 
-        /// <summary>目标过滤 Tag 起点。</summary>
-        public int TargetFilterStart;
+        /// <summary>收集 Tag 的数量。单位命中其中任一 Tag 即进入条件检查。</summary>
+        public int TagCount;
 
-        /// <summary>目标过滤 Tag 数量。</summary>
-        public int TargetFilterCount;
+        /// <summary>收集时的层级匹配。未设置时按向下匹配。</summary>
+        public TagMatch Match;
 
-        /// <summary>目标拾取。</summary>
-        public SpellPickId Pick;
+        /// <summary>收集时是否跳过施法标记核对。0 核对，1 不核对。</summary>
+        public byte IgnoreCastMask;
+
+        /// <summary>收集条件的起点。</summary>
+        public int TargetConditionStart;
+
+        /// <summary>收集条件的数量。同一个目标上的条件全部通过才保留。</summary>
+        public int TargetConditionCount;
 
         /// <summary>Buff 起点。</summary>
         public int BuffStart;
@@ -91,6 +97,19 @@ namespace RebornFrame.Spell
         public int TrackCount;
     }
 
+        /// <summary>冻结后的一条收集条件。</summary>
+    public struct SpellConditionDefinition
+    {
+        /// <summary>条件类型。</summary>
+        public ConditionTypeId Type;
+
+        /// <summary>参数字节起点。</summary>
+        public int ParameterStart;
+
+        /// <summary>参数字节数量。</summary>
+        public int ParameterCount;
+    }
+
     /// <summary>冻结后的一条表现轨道。</summary>
     public struct SpellPresentationTrackDefinition
     {
@@ -131,8 +150,11 @@ namespace RebornFrame.Spell
         /// <summary>法术引用的表现轨道。</summary>
         public BlobArray<SpellPresentationTrackDefinition> Tracks;
 
-        /// <summary>表现轨道参数字节。</summary>
+        /// <summary>表现轨道和收集条件的参数字节。</summary>
         public BlobArray<byte> Parameters;
+
+        /// <summary>事件收集引用的条件。</summary>
+        public BlobArray<SpellConditionDefinition> ConditionChecks;
     }
 
     /// <summary>
@@ -144,14 +166,14 @@ namespace RebornFrame.Spell
         private const ulong FnvPrime = 1099511628211UL;
 
         /// <summary>
-        ///     校验、排序并冻结法术定义。重复且内容哈希一致的定义会合并。
+        ///     校验、排序并冻结法术定义。同一 ID 以后出现的定义为准。
         /// </summary>
         /// <param name="definitions">待构建的定义。</param>
         /// <param name="buffs">这些法术可以引用的 Buff。</param>
         /// <param name="allocator">BlobAsset 的持久分配器。</param>
         /// <returns>冻结后的法术目录。</returns>
         /// <exception cref="ArgumentNullException">定义列表或 Buff 列表为 null。</exception>
-        /// <exception cref="ArgumentException">定义非法、引用了未知 Buff，或同一 ID 冲突。</exception>
+        /// <exception cref="ArgumentException">定义非法，或引用了未知 Buff。</exception>
         public static BlobAssetReference<SpellCatalogBlob> Build(
             IReadOnlyList<SpellDefinitionData> definitions,
             IReadOnlyList<BuffId> buffs,
@@ -164,46 +186,43 @@ namespace RebornFrame.Spell
             var knownBuffs = new HashSet<ulong>(buffs.Count);
             for (var index = 0; index < buffs.Count; index++) knownBuffs.Add(buffs[index].Value);
 
-            var sorted = new List<SpellDefinitionData>(definitions.Count);
+            var lastIndex = new Dictionary<ulong, int>(definitions.Count);
             for (var index = 0; index < definitions.Count; index++)
             {
                 var definition = definitions[index];
                 if (definition == null) throw new ArgumentException("法术定义不能为 null。", nameof(definitions));
 
                 Validate(definition, knownBuffs);
-                sorted.Add(definition);
+                lastIndex[definition.Id.Value] = index;
             }
 
-            sorted.Sort(DefinitionComparer.Instance);
-            var unique = new List<SpellDefinitionData>(sorted.Count);
-            var hashes = new List<ulong>(sorted.Count);
-            for (var index = 0; index < sorted.Count; index++)
+            var unique = new List<SpellDefinitionData>(lastIndex.Count);
+            for (var index = 0; index < definitions.Count; index++)
             {
-                var definition = sorted[index];
-                var hash = HashDefinition(definition);
-                if (unique.Count == 0 || unique[unique.Count - 1].Id != definition.Id)
-                {
-                    unique.Add(definition);
-                    hashes.Add(hash);
-                    continue;
-                }
+                var definition = definitions[index];
+                if (lastIndex[definition.Id.Value] != index) continue;
 
-                if (hashes[hashes.Count - 1] != hash)
-                    throw new ArgumentException($"法术 {definition.Id} 存在冲突定义。", nameof(definitions));
+                unique.Add(definition);
             }
+
+            unique.Sort(DefinitionComparer.Instance);
+            var hashes = new List<ulong>(unique.Count);
+            for (var index = 0; index < unique.Count; index++)
+                hashes.Add(HashDefinition(unique[index]));
 
             var tags = new List<TagId>();
             var events = new List<SpellEventDefinition>();
             var referenced = new List<BuffId>();
             var tracks = new List<SpellPresentationTrackDefinition>();
             var parameters = new List<byte>();
+            var conditions = new List<SpellConditionDefinition>();
             var built = new List<SpellDefinition>(unique.Count);
             var schema = FnvOffset;
             for (var index = 0; index < unique.Count; index++)
             {
                 var definition = unique[index];
                 schema = Mix(schema, hashes[index]);
-                built.Add(Pack(definition, tags, events, referenced, tracks, parameters));
+                built.Add(Pack(definition, tags, events, referenced, tracks, parameters, conditions));
             }
 
             using var builder = new BlobBuilder(Allocator.Temp);
@@ -226,6 +245,9 @@ namespace RebornFrame.Spell
 
             var parameterBlob = builder.Allocate(ref root.Parameters, parameters.Count);
             for (var index = 0; index < parameters.Count; index++) parameterBlob[index] = parameters[index];
+
+            var conditionBlob = builder.Allocate(ref root.ConditionChecks, conditions.Count);
+            for (var index = 0; index < conditions.Count; index++) conditionBlob[index] = conditions[index];
 
             return builder.CreateBlobAssetReference<SpellCatalogBlob>(allocator);
         }
@@ -337,8 +359,7 @@ namespace RebornFrame.Spell
             }
 
             ValidateQuery(definition.Id, evt.Condition, evt.ConditionTags, "条件");
-            ValidateQuery(definition.Id, evt.TargetFilter, evt.TargetFilterTags, "目标过滤");
-            ValidatePick(definition.Id, evt.Pick);
+            ValidateCollection(definition.Id, evt);
             if (evt.Buffs == null) throw new ArgumentException($"法术 {definition.Id} 的 Buff 列表不能为 null。");
 
             for (var index = 0; index < evt.Buffs.Count; index++)
@@ -408,17 +429,51 @@ namespace RebornFrame.Spell
                     throw new ArgumentException($"法术 {spell} 的{name}包含了无效 Tag。");
         }
 
-        private static void ValidatePick(SpellId spell, SpellPickId pick)
+        private static void ValidateCollection(SpellId spell, SpellEventAuthoring evt)
         {
-            if (pick.AuthorId == LibrarySpell.AuthorId)
+            if (evt.TargetConditions == null)
+                throw new ArgumentException($"法术 {spell} 的收集条件不能为 null。");
+
+            if (evt.Match != TagMatch.None && !ConditionTagParameters.IsHierarchy(evt.Match))
+                throw new ArgumentException($"法术 {spell} 的标签匹配方式无效。");
+
+            if (evt.IgnoreCastMask != 0 && evt.IgnoreCastMask != 1)
+                throw new ArgumentException($"法术 {spell} 的 ignore_cast_mask 只能是 0 或 1。");
+
+            if (evt.Tags == null) throw new ArgumentException($"法术 {spell} 的收集 Tag 列表不能为 null。");
+
+            for (var index = 0; index < evt.Tags.Count; index++)
+                if (evt.Tags[index] == LibraryTags.None)
+                    throw new ArgumentException($"法术 {spell} 的收集 Tag 无效。");
+
+            for (var index = 0; index < evt.TargetConditions.Count; index++)
+                ValidateCondition(spell, evt.TargetConditions[index]);
+        }
+
+        private static void ValidateCondition(SpellId spell, SpellConditionAuthoring condition)
+        {
+            if (condition == null) throw new ArgumentException($"法术 {spell} 的收集条件不能为 null。");
+
+            if (condition.Type.Value == 0)
+                throw new ArgumentException($"法术 {spell} 的收集条件类型无效。");
+
+            if (LibraryCondition.IsReserved(condition.Type) && !LibraryCondition.IsDefined(condition.Type))
+                throw new ArgumentException($"法术 {spell} 使用了未知的库条件 {condition.Type}。");
+
+            var bytes = condition.Parameters ?? Array.Empty<byte>();
+            if (bytes.Length > LibraryCondition.MaxParameterBytes)
+                throw new ArgumentException($"法术 {spell} 的收集条件参数超出范围。");
+
+            if (LibraryCondition.IsParameterless(condition.Type))
             {
-                if (!LibrarySpell.IsBuiltinPick(pick))
-                    throw new ArgumentException($"法术 {spell} 使用了未知的库拾取 {pick}。");
+                if (bytes.Length != 0)
+                    throw new ArgumentException($"法术 {spell} 的条件 {condition.Type} 不接受参数。");
 
                 return;
             }
 
-            if (pick.Value == 0) throw new ArgumentException($"法术 {spell} 的拾取无效。");
+            if (condition.Type == LibraryCondition.Tag && !ConditionTagParameters.IsValid(bytes))
+                throw new ArgumentException($"法术 {spell} 的 Tag 条件参数无效。");
         }
 
         private static SpellDefinition Pack(
@@ -427,7 +482,8 @@ namespace RebornFrame.Spell
             List<SpellEventDefinition> events,
             List<BuffId> buffs,
             List<SpellPresentationTrackDefinition> tracks,
-            List<byte> parameters)
+            List<byte> parameters,
+            List<SpellConditionDefinition> conditions)
         {
             var definition = new SpellDefinition
             {
@@ -444,12 +500,12 @@ namespace RebornFrame.Spell
                 TrackCount = source.PresentationTracks.Count
             };
             for (var index = 0; index < source.Events.Count; index++)
-                events.Add(PackEvent(source.Events[index], tags, buffs));
+                events.Add(PackEvent(source.Events[index], tags, buffs, parameters, conditions));
 
             if (source.EndEvent != null)
             {
                 definition.HasEndEvent = 1;
-                definition.EndEvent = PackEvent(source.EndEvent, tags, buffs);
+                definition.EndEvent = PackEvent(source.EndEvent, tags, buffs, parameters, conditions);
             }
 
             for (var index = 0; index < source.PresentationTracks.Count; index++)
@@ -479,7 +535,9 @@ namespace RebornFrame.Spell
         private static SpellEventDefinition PackEvent(
             SpellEventAuthoring source,
             List<TagId> tags,
-            List<BuffId> buffs)
+            List<BuffId> buffs,
+            List<byte> parameters,
+            List<SpellConditionDefinition> conditions)
         {
             var evt = new SpellEventDefinition
             {
@@ -490,16 +548,42 @@ namespace RebornFrame.Spell
                 Condition = source.Condition,
                 ConditionStart = tags.Count,
                 ConditionCount = AddTags(tags, source.ConditionTags),
-                TargetFilter = source.TargetFilter,
-                TargetFilterStart = tags.Count,
-                TargetFilterCount = AddTags(tags, source.TargetFilterTags),
-                Pick = source.Pick,
+                TagStart = tags.Count,
+                TagCount = AddTags(tags, source.Tags),
+                Match = NormalizeMatch(source),
+                IgnoreCastMask = (byte)source.IgnoreCastMask,
+                TargetConditionStart = conditions.Count,
+                TargetConditionCount = source.TargetConditions.Count,
                 BuffStart = buffs.Count,
                 BuffCount = source.Buffs.Count
             };
+            for (var index = 0; index < source.TargetConditions.Count; index++)
+                conditions.Add(PackCondition(source.TargetConditions[index], parameters));
+
             for (var index = 0; index < source.Buffs.Count; index++) buffs.Add(source.Buffs[index]);
 
             return evt;
+        }
+
+        private static SpellConditionDefinition PackCondition(
+            SpellConditionAuthoring source,
+            List<byte> parameters)
+        {
+            var bytes = source.Parameters ?? Array.Empty<byte>();
+            var condition = new SpellConditionDefinition
+            {
+                Type = source.Type,
+                ParameterStart = parameters.Count,
+                ParameterCount = bytes.Length
+            };
+            for (var index = 0; index < bytes.Length; index++) parameters.Add(bytes[index]);
+
+            return condition;
+        }
+
+        private static TagMatch NormalizeMatch(SpellEventAuthoring evt)
+        {
+            return evt.Match == TagMatch.None ? TagMatch.Downward : evt.Match;
         }
 
         private static int AddTags(List<TagId> destination, List<TagId> source)
@@ -550,10 +634,24 @@ namespace RebornFrame.Spell
             hash = Mix(hash, (uint)evt.CooldownFrames);
             hash = Mix(hash, (byte)evt.Condition);
             hash = HashTags(hash, evt.ConditionTags);
-            hash = Mix(hash, (byte)evt.TargetFilter);
-            hash = HashTags(hash, evt.TargetFilterTags);
-            hash = Mix(hash, evt.Pick.Value);
+            hash = HashTags(hash, evt.Tags);
+            hash = Mix(hash, (byte)NormalizeMatch(evt));
+            hash = Mix(hash, (byte)evt.IgnoreCastMask);
+            hash = Mix(hash, (uint)evt.TargetConditions.Count);
+            for (var index = 0; index < evt.TargetConditions.Count; index++)
+                hash = HashCondition(hash, evt.TargetConditions[index]);
+
             for (var index = 0; index < evt.Buffs.Count; index++) hash = Mix(hash, evt.Buffs[index].Value);
+
+            return hash;
+        }
+
+        private static ulong HashCondition(ulong hash, SpellConditionAuthoring condition)
+        {
+            hash = Mix(hash, condition.Type.Value);
+            var bytes = condition.Parameters ?? Array.Empty<byte>();
+            hash = Mix(hash, (uint)bytes.Length);
+            for (var index = 0; index < bytes.Length; index++) hash = Mix(hash, bytes[index]);
 
             return hash;
         }

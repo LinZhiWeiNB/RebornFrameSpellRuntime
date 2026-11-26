@@ -37,54 +37,60 @@ namespace RebornFrame.Spell {
             "dmVudENvbmZpZxI0ChNwcmVzZW50YXRpb25fdHJhY2tzGAkgAygLMhcuU3Bl",
             "bGxQcmVzZW50YXRpb25UcmFjayJrChZTcGVsbFByZXNlbnRhdGlvblRyYWNr",
             "Eg8KB3R5cGVfaWQYASABKAQSEwoLc3RhcnRfZnJhbWUYAiABKAUSFwoPZHVy",
-            "YXRpb25fZnJhbWVzGAMgASgFEhIKCnBhcmFtZXRlcnMYBCABKAwi3AEKEFNw",
+            "YXRpb25fZnJhbWVzGAMgASgFEhIKCnBhcmFtZXRlcnMYBCABKAwi5wIKEFNw",
             "ZWxsRXZlbnRDb25maWcSDwoHdHJpZ2dlchgBIAEoBRINCgVmcmFtZRgCIAEo",
             "BRIRCglzaWduYWxfaWQYAyABKAQSFwoPY29vbGRvd25fZnJhbWVzGAQgASgF",
-            "EhEKCWNvbmRpdGlvbhgFIAEoBRIWCg5jb25kaXRpb25fdGFncxgGIAMoBBIV",
-            "Cg10YXJnZXRfZmlsdGVyGAcgASgFEhoKEnRhcmdldF9maWx0ZXJfdGFncxgI",
-            "IAMoBBIMCgRwaWNrGAkgASgEEhAKCGJ1ZmZfaWRzGAogAygEIoMBChlBdHRy",
-            "aWJ1dGVEZWZpbml0aW9uQ29uZmlnEgoKAmlkGAEgASgEEhIKCnZhbHVlX2tp",
-            "bmQYAiABKAUSEAoIYmVoYXZpb3IYAyABKAUSFAoMbm9uX25lZ2F0aXZlGAQg",
-            "ASgIEh4KFnNjYWxlX2N1cnJlbnRfd2l0aF9tYXgYBSABKAgiUwoaVW5pdEF0",
-            "dHJpYnV0ZURlZmF1bHRDb25maWcSFAoMYXR0cmlidXRlX2lkGAEgASgEEhIK",
-            "CnZhbHVlX2tpbmQYAiABKAUSCwoDcmF3GAMgASgDIjQKE1RhZ0RlZmluaXRp",
-            "b25Db25maWcSCgoCaWQYASABKAQSEQoJcGFyZW50X2lkGAIgASgEIvwEChRC",
-            "dWZmRGVmaW5pdGlvbkNvbmZpZxIKCgJpZBgBIAEoBBIXCg9kdXJhdGlvbl9w",
-            "b2xpY3kYAiABKAUSEAoIaWRlbnRpdHkYAyABKAUSEgoKbWF4X3N0YWNrcxgE",
-            "IAEoBRIQCghvdmVyZmxvdxgFIAEoBRIVCg1kdXJhdGlvbl9tb2RlGAYgASgF",
-            "EhYKDnJlZnJlc2hfcG9saWN5GAcgASgFEhQKDHBlcmlvZF9yZXNldBgIIAEo",
-            "BRIXCg9leGNsdXNpdmVfZ3JvdXAYCSABKAQSGgoSZXhjbHVzaXZlX3ByaW9y",
-            "aXR5GAogASgFEhYKDmR1cmF0aW9uX3Njb3BlGAsgASgFEhkKEWR1cmF0aW9u",
-            "X2l0ZXJhdG9yGAwgASgEEhYKDmR1cmF0aW9uX3N0ZXBzGA0gASgFEhMKC3Jl",
-            "cXVpcmVtZW50GA4gASgFEhUKDXJlcXVpcmVkX3RhZ3MYDyADKAQSFQoNaW1t",
-            "dW5pdHlfdGFncxgQIAMoBBIUCgxncmFudGVkX3RhZ3MYESADKAQSKQoOY3Jl",
-            "YXRlX2VmZmVjdHMYEiADKAsyES5CdWZmRWZmZWN0Q29uZmlnEikKDnVwZGF0",
-            "ZV9lZmZlY3RzGBMgAygLMhEuQnVmZkVmZmVjdENvbmZpZxIpCg5yZW1vdmVf",
-            "ZWZmZWN0cxgUIAMoCzIRLkJ1ZmZFZmZlY3RDb25maWcSNQoRcGVyaW9kaWNf",
-            "dHJpZ2dlcnMYFSADKAsyGi5CdWZmUGVyaW9kaWNUcmlnZ2VyQ29uZmlnEjEK",
-            "D3NpZ25hbF90cmlnZ2VycxgWIAMoCzIYLkJ1ZmZTaWduYWxUcmlnZ2VyQ29u",
-            "ZmlnIkoKEEJ1ZmZFZmZlY3RDb25maWcSEQoJZWZmZWN0X2lkGAEgASgEEg8K",
-            "B3ZlcnNpb24YAiABKA0SEgoKcGFyYW1ldGVycxgDIAEoDCJ1ChlCdWZmUGVy",
-            "aW9kaWNUcmlnZ2VyQ29uZmlnEg0KBXNjb3BlGAEgASgFEhMKC2l0ZXJhdG9y",
-            "X2lkGAIgASgEEhAKCGludGVydmFsGAMgASgFEiIKB2VmZmVjdHMYBCADKAsy",
-            "ES5CdWZmRWZmZWN0Q29uZmlnIn8KF0J1ZmZTaWduYWxUcmlnZ2VyQ29uZmln",
-            "EhEKCXNpZ25hbF9pZBgBIAEoBBIQCghpbnRlcnZhbBgCIAEoBRINCgVxdWVy",
-            "eRgDIAEoBRIMCgR0YWdzGAQgAygEEiIKB2VmZmVjdHMYBSADKAsyES5CdWZm",
-            "RWZmZWN0Q29uZmlnIpIBChtBZGRNb2RpZmllckJ1ZmZFZmZlY3RDb25maWcS",
-            "EQoJYXR0cmlidXRlGAEgASgEEg8KB2NoYW5uZWwYAiABKAUSEQoJb3BlcmF0",
-            "aW9uGAMgASgFEg0KBW9yZGVyGAQgASgFEhkKEW1vZGlmaWVyX2xvY2FsX2lk",
-            "GAUgASgFEhIKCnZhbHVlX2JpdHMYBiABKAMiTAojUmVxdWVzdEN1cnJlbnRW",
-            "YWx1ZUJ1ZmZFZmZlY3RDb25maWcSEQoJYXR0cmlidXRlGAEgASgEEhIKCmRl",
-            "bHRhX2JpdHMYAiABKAMiJwoYR3JhbnRUYWdCdWZmRWZmZWN0Q29uZmlnEgsK",
-            "A3RhZxgBIAEoBCIoChlSZW1vdmVUYWdCdWZmRWZmZWN0Q29uZmlnEgsKA3Rh",
-            "ZxgBIAEoBEIUqgIRUmVib3JuRnJhbWUuU3BlbGxiBnByb3RvMw=="));
+            "EhEKCWNvbmRpdGlvbhgFIAEoBRIWCg5jb25kaXRpb25fdGFncxgGIAMoBBIM",
+            "CgR0YWdzGAggAygEEhAKCGJ1ZmZfaWRzGAogAygEEg0KBW1hdGNoGAsgASgF",
+            "EhgKEGlnbm9yZV9jYXN0X21hc2sYDSABKAUSNgoRdGFyZ2V0X2NvbmRpdGlv",
+            "bnMYDCADKAsyGy5TcGVsbFRhcmdldENvbmRpdGlvbkNvbmZpZ0oECAcQCEoE",
+            "CAkQClINdGFyZ2V0X2ZpbHRlclISdGFyZ2V0X2ZpbHRlcl90YWdzUgRwaWNr",
+            "UgpwaWNrX21hdGNoUg9waWNrX2NvbmRpdGlvbnNSCWNhc3RfbWFzayI+ChpT",
+            "cGVsbFRhcmdldENvbmRpdGlvbkNvbmZpZxIMCgR0eXBlGAEgASgEEhIKCnBh",
+            "cmFtZXRlcnMYAiABKAwigwEKGUF0dHJpYnV0ZURlZmluaXRpb25Db25maWcS",
+            "CgoCaWQYASABKAQSEgoKdmFsdWVfa2luZBgCIAEoBRIQCghiZWhhdmlvchgD",
+            "IAEoBRIUCgxub25fbmVnYXRpdmUYBCABKAgSHgoWc2NhbGVfY3VycmVudF93",
+            "aXRoX21heBgFIAEoCCJTChpVbml0QXR0cmlidXRlRGVmYXVsdENvbmZpZxIU",
+            "CgxhdHRyaWJ1dGVfaWQYASABKAQSEgoKdmFsdWVfa2luZBgCIAEoBRILCgNy",
+            "YXcYAyABKAMiNAoTVGFnRGVmaW5pdGlvbkNvbmZpZxIKCgJpZBgBIAEoBBIR",
+            "CglwYXJlbnRfaWQYAiABKAQi/AQKFEJ1ZmZEZWZpbml0aW9uQ29uZmlnEgoK",
+            "AmlkGAEgASgEEhcKD2R1cmF0aW9uX3BvbGljeRgCIAEoBRIQCghpZGVudGl0",
+            "eRgDIAEoBRISCgptYXhfc3RhY2tzGAQgASgFEhAKCG92ZXJmbG93GAUgASgF",
+            "EhUKDWR1cmF0aW9uX21vZGUYBiABKAUSFgoOcmVmcmVzaF9wb2xpY3kYByAB",
+            "KAUSFAoMcGVyaW9kX3Jlc2V0GAggASgFEhcKD2V4Y2x1c2l2ZV9ncm91cBgJ",
+            "IAEoBBIaChJleGNsdXNpdmVfcHJpb3JpdHkYCiABKAUSFgoOZHVyYXRpb25f",
+            "c2NvcGUYCyABKAUSGQoRZHVyYXRpb25faXRlcmF0b3IYDCABKAQSFgoOZHVy",
+            "YXRpb25fc3RlcHMYDSABKAUSEwoLcmVxdWlyZW1lbnQYDiABKAUSFQoNcmVx",
+            "dWlyZWRfdGFncxgPIAMoBBIVCg1pbW11bml0eV90YWdzGBAgAygEEhQKDGdy",
+            "YW50ZWRfdGFncxgRIAMoBBIpCg5jcmVhdGVfZWZmZWN0cxgSIAMoCzIRLkJ1",
+            "ZmZFZmZlY3RDb25maWcSKQoOdXBkYXRlX2VmZmVjdHMYEyADKAsyES5CdWZm",
+            "RWZmZWN0Q29uZmlnEikKDnJlbW92ZV9lZmZlY3RzGBQgAygLMhEuQnVmZkVm",
+            "ZmVjdENvbmZpZxI1ChFwZXJpb2RpY190cmlnZ2VycxgVIAMoCzIaLkJ1ZmZQ",
+            "ZXJpb2RpY1RyaWdnZXJDb25maWcSMQoPc2lnbmFsX3RyaWdnZXJzGBYgAygL",
+            "MhguQnVmZlNpZ25hbFRyaWdnZXJDb25maWciSgoQQnVmZkVmZmVjdENvbmZp",
+            "ZxIRCgllZmZlY3RfaWQYASABKAQSDwoHdmVyc2lvbhgCIAEoDRISCgpwYXJh",
+            "bWV0ZXJzGAMgASgMInUKGUJ1ZmZQZXJpb2RpY1RyaWdnZXJDb25maWcSDQoF",
+            "c2NvcGUYASABKAUSEwoLaXRlcmF0b3JfaWQYAiABKAQSEAoIaW50ZXJ2YWwY",
+            "AyABKAUSIgoHZWZmZWN0cxgEIAMoCzIRLkJ1ZmZFZmZlY3RDb25maWcifwoX",
+            "QnVmZlNpZ25hbFRyaWdnZXJDb25maWcSEQoJc2lnbmFsX2lkGAEgASgEEhAK",
+            "CGludGVydmFsGAIgASgFEg0KBXF1ZXJ5GAMgASgFEgwKBHRhZ3MYBCADKAQS",
+            "IgoHZWZmZWN0cxgFIAMoCzIRLkJ1ZmZFZmZlY3RDb25maWcikgEKG0FkZE1v",
+            "ZGlmaWVyQnVmZkVmZmVjdENvbmZpZxIRCglhdHRyaWJ1dGUYASABKAQSDwoH",
+            "Y2hhbm5lbBgCIAEoBRIRCglvcGVyYXRpb24YAyABKAUSDQoFb3JkZXIYBCAB",
+            "KAUSGQoRbW9kaWZpZXJfbG9jYWxfaWQYBSABKAUSEgoKdmFsdWVfYml0cxgG",
+            "IAEoAyJMCiNSZXF1ZXN0Q3VycmVudFZhbHVlQnVmZkVmZmVjdENvbmZpZxIR",
+            "CglhdHRyaWJ1dGUYASABKAQSEgoKZGVsdGFfYml0cxgCIAEoAyInChhHcmFu",
+            "dFRhZ0J1ZmZFZmZlY3RDb25maWcSCwoDdGFnGAEgASgEIigKGVJlbW92ZVRh",
+            "Z0J1ZmZFZmZlY3RDb25maWcSCwoDdGFnGAEgASgEQhSqAhFSZWJvcm5GcmFt",
+            "ZS5TcGVsbGIGcHJvdG8z"));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
             new pbr::GeneratedClrTypeInfo(typeof(global::RebornFrame.Spell.SpellModuleData), global::RebornFrame.Spell.SpellModuleData.Parser, new[]{ "Attributes", "Tags", "Buffs", "Spells", "AttributeLayout" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::RebornFrame.Spell.SpellData), global::RebornFrame.Spell.SpellData.Parser, new[]{ "Id", "Activation", "DurationFrames", "CooldownFrames", "Admission", "AdmissionTags", "Events", "EndEvent", "PresentationTracks" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::RebornFrame.Spell.SpellPresentationTrack), global::RebornFrame.Spell.SpellPresentationTrack.Parser, new[]{ "TypeId", "StartFrame", "DurationFrames", "Parameters" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::RebornFrame.Spell.SpellEventConfig), global::RebornFrame.Spell.SpellEventConfig.Parser, new[]{ "Trigger", "Frame", "SignalId", "CooldownFrames", "Condition", "ConditionTags", "TargetFilter", "TargetFilterTags", "Pick", "BuffIds" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::RebornFrame.Spell.SpellEventConfig), global::RebornFrame.Spell.SpellEventConfig.Parser, new[]{ "Trigger", "Frame", "SignalId", "CooldownFrames", "Condition", "ConditionTags", "Tags", "BuffIds", "Match", "IgnoreCastMask", "TargetConditions" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::RebornFrame.Spell.SpellTargetConditionConfig), global::RebornFrame.Spell.SpellTargetConditionConfig.Parser, new[]{ "Type", "Parameters" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::RebornFrame.Spell.AttributeDefinitionConfig), global::RebornFrame.Spell.AttributeDefinitionConfig.Parser, new[]{ "Id", "ValueKind", "Behavior", "NonNegative", "ScaleCurrentWithMax" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::RebornFrame.Spell.UnitAttributeDefaultConfig), global::RebornFrame.Spell.UnitAttributeDefaultConfig.Parser, new[]{ "AttributeId", "ValueKind", "Raw" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::RebornFrame.Spell.TagDefinitionConfig), global::RebornFrame.Spell.TagDefinitionConfig.Parser, new[]{ "Id", "ParentId" }, null, null, null, null),
@@ -103,7 +109,7 @@ namespace RebornFrame.Spell {
   }
   #region Messages
   /// <summary>
-  /// 一份法术模块数据。多个开发者可以各提供一份，启动时合并。
+  /// 一份法术模块数据。多次加载时，相同 ID 以后加载的定义为准。
   /// </summary>
   public sealed partial class SpellModuleData : pb::IMessage<SpellModuleData>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
@@ -1178,7 +1184,7 @@ namespace RebornFrame.Spell {
   }
 
   /// <summary>
-  /// 时间轴上的一条事件。触发后先看持有者条件，再拾取目标，然后提交 Buff。
+  /// 时间轴上的一条事件。触发后先看持有者条件，再按标签收集单位，条件通过后提交 Buff。
   /// </summary>
   public sealed partial class SpellEventConfig : pb::IMessage<SpellEventConfig>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
@@ -1220,10 +1226,11 @@ namespace RebornFrame.Spell {
       cooldownFrames_ = other.cooldownFrames_;
       condition_ = other.condition_;
       conditionTags_ = other.conditionTags_.Clone();
-      targetFilter_ = other.targetFilter_;
-      targetFilterTags_ = other.targetFilterTags_.Clone();
-      pick_ = other.pick_;
+      tags_ = other.tags_.Clone();
       buffIds_ = other.buffIds_.Clone();
+      match_ = other.match_;
+      ignoreCastMask_ = other.ignoreCastMask_;
+      targetConditions_ = other.targetConditions_.Clone();
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -1307,39 +1314,18 @@ namespace RebornFrame.Spell {
       get { return conditionTags_; }
     }
 
-    /// <summary>Field number for the "target_filter" field.</summary>
-    public const int TargetFilterFieldNumber = 7;
-    private int targetFilter_;
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public int TargetFilter {
-      get { return targetFilter_; }
-      set {
-        targetFilter_ = value;
-      }
-    }
-
-    /// <summary>Field number for the "target_filter_tags" field.</summary>
-    public const int TargetFilterTagsFieldNumber = 8;
-    private static readonly pb::FieldCodec<ulong> _repeated_targetFilterTags_codec
+    /// <summary>Field number for the "tags" field.</summary>
+    public const int TagsFieldNumber = 8;
+    private static readonly pb::FieldCodec<ulong> _repeated_tags_codec
         = pb::FieldCodec.ForUInt64(66);
-    private readonly pbc::RepeatedField<ulong> targetFilterTags_ = new pbc::RepeatedField<ulong>();
+    private readonly pbc::RepeatedField<ulong> tags_ = new pbc::RepeatedField<ulong>();
+    /// <summary>
+    /// 要收集的 Tag。单位命中其中任一 Tag 即进入条件检查。
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public pbc::RepeatedField<ulong> TargetFilterTags {
-      get { return targetFilterTags_; }
-    }
-
-    /// <summary>Field number for the "pick" field.</summary>
-    public const int PickFieldNumber = 9;
-    private ulong pick_;
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public ulong Pick {
-      get { return pick_; }
-      set {
-        pick_ = value;
-      }
+    public pbc::RepeatedField<ulong> Tags {
+      get { return tags_; }
     }
 
     /// <summary>Field number for the "buff_ids" field.</summary>
@@ -1351,6 +1337,50 @@ namespace RebornFrame.Spell {
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public pbc::RepeatedField<ulong> BuffIds {
       get { return buffIds_; }
+    }
+
+    /// <summary>Field number for the "match" field.</summary>
+    public const int MatchFieldNumber = 11;
+    private int match_;
+    /// <summary>
+    /// TagMatch：0 未设置，视为向下匹配；1 Exact，2 Upward，3 Downward，4 Any。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int Match {
+      get { return match_; }
+      set {
+        match_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "ignore_cast_mask" field.</summary>
+    public const int IgnoreCastMaskFieldNumber = 13;
+    private int ignoreCastMask_;
+    /// <summary>
+    /// 0 核对这次施法标记，1 不核对。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int IgnoreCastMask {
+      get { return ignoreCastMask_; }
+      set {
+        ignoreCastMask_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "target_conditions" field.</summary>
+    public const int TargetConditionsFieldNumber = 12;
+    private static readonly pb::FieldCodec<global::RebornFrame.Spell.SpellTargetConditionConfig> _repeated_targetConditions_codec
+        = pb::FieldCodec.ForMessage(98, global::RebornFrame.Spell.SpellTargetConditionConfig.Parser);
+    private readonly pbc::RepeatedField<global::RebornFrame.Spell.SpellTargetConditionConfig> targetConditions_ = new pbc::RepeatedField<global::RebornFrame.Spell.SpellTargetConditionConfig>();
+    /// <summary>
+    /// 收集到单位后附加的条件。同一个目标上的多条条件全部通过才保留该目标。
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public pbc::RepeatedField<global::RebornFrame.Spell.SpellTargetConditionConfig> TargetConditions {
+      get { return targetConditions_; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -1374,10 +1404,11 @@ namespace RebornFrame.Spell {
       if (CooldownFrames != other.CooldownFrames) return false;
       if (Condition != other.Condition) return false;
       if(!conditionTags_.Equals(other.conditionTags_)) return false;
-      if (TargetFilter != other.TargetFilter) return false;
-      if(!targetFilterTags_.Equals(other.targetFilterTags_)) return false;
-      if (Pick != other.Pick) return false;
+      if(!tags_.Equals(other.tags_)) return false;
       if(!buffIds_.Equals(other.buffIds_)) return false;
+      if (Match != other.Match) return false;
+      if (IgnoreCastMask != other.IgnoreCastMask) return false;
+      if(!targetConditions_.Equals(other.targetConditions_)) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -1391,10 +1422,11 @@ namespace RebornFrame.Spell {
       if (CooldownFrames != 0) hash ^= CooldownFrames.GetHashCode();
       if (Condition != 0) hash ^= Condition.GetHashCode();
       hash ^= conditionTags_.GetHashCode();
-      if (TargetFilter != 0) hash ^= TargetFilter.GetHashCode();
-      hash ^= targetFilterTags_.GetHashCode();
-      if (Pick != 0UL) hash ^= Pick.GetHashCode();
+      hash ^= tags_.GetHashCode();
       hash ^= buffIds_.GetHashCode();
+      if (Match != 0) hash ^= Match.GetHashCode();
+      if (IgnoreCastMask != 0) hash ^= IgnoreCastMask.GetHashCode();
+      hash ^= targetConditions_.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -1434,16 +1466,17 @@ namespace RebornFrame.Spell {
         output.WriteInt32(Condition);
       }
       conditionTags_.WriteTo(output, _repeated_conditionTags_codec);
-      if (TargetFilter != 0) {
-        output.WriteRawTag(56);
-        output.WriteInt32(TargetFilter);
-      }
-      targetFilterTags_.WriteTo(output, _repeated_targetFilterTags_codec);
-      if (Pick != 0UL) {
-        output.WriteRawTag(72);
-        output.WriteUInt64(Pick);
-      }
+      tags_.WriteTo(output, _repeated_tags_codec);
       buffIds_.WriteTo(output, _repeated_buffIds_codec);
+      if (Match != 0) {
+        output.WriteRawTag(88);
+        output.WriteInt32(Match);
+      }
+      targetConditions_.WriteTo(output, _repeated_targetConditions_codec);
+      if (IgnoreCastMask != 0) {
+        output.WriteRawTag(104);
+        output.WriteInt32(IgnoreCastMask);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -1475,16 +1508,17 @@ namespace RebornFrame.Spell {
         output.WriteInt32(Condition);
       }
       conditionTags_.WriteTo(ref output, _repeated_conditionTags_codec);
-      if (TargetFilter != 0) {
-        output.WriteRawTag(56);
-        output.WriteInt32(TargetFilter);
-      }
-      targetFilterTags_.WriteTo(ref output, _repeated_targetFilterTags_codec);
-      if (Pick != 0UL) {
-        output.WriteRawTag(72);
-        output.WriteUInt64(Pick);
-      }
+      tags_.WriteTo(ref output, _repeated_tags_codec);
       buffIds_.WriteTo(ref output, _repeated_buffIds_codec);
+      if (Match != 0) {
+        output.WriteRawTag(88);
+        output.WriteInt32(Match);
+      }
+      targetConditions_.WriteTo(ref output, _repeated_targetConditions_codec);
+      if (IgnoreCastMask != 0) {
+        output.WriteRawTag(104);
+        output.WriteInt32(IgnoreCastMask);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -1511,14 +1545,15 @@ namespace RebornFrame.Spell {
         size += 1 + pb::CodedOutputStream.ComputeInt32Size(Condition);
       }
       size += conditionTags_.CalculateSize(_repeated_conditionTags_codec);
-      if (TargetFilter != 0) {
-        size += 1 + pb::CodedOutputStream.ComputeInt32Size(TargetFilter);
-      }
-      size += targetFilterTags_.CalculateSize(_repeated_targetFilterTags_codec);
-      if (Pick != 0UL) {
-        size += 1 + pb::CodedOutputStream.ComputeUInt64Size(Pick);
-      }
+      size += tags_.CalculateSize(_repeated_tags_codec);
       size += buffIds_.CalculateSize(_repeated_buffIds_codec);
+      if (Match != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeInt32Size(Match);
+      }
+      if (IgnoreCastMask != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeInt32Size(IgnoreCastMask);
+      }
+      size += targetConditions_.CalculateSize(_repeated_targetConditions_codec);
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
       }
@@ -1547,14 +1582,15 @@ namespace RebornFrame.Spell {
         Condition = other.Condition;
       }
       conditionTags_.Add(other.conditionTags_);
-      if (other.TargetFilter != 0) {
-        TargetFilter = other.TargetFilter;
-      }
-      targetFilterTags_.Add(other.targetFilterTags_);
-      if (other.Pick != 0UL) {
-        Pick = other.Pick;
-      }
+      tags_.Add(other.tags_);
       buffIds_.Add(other.buffIds_);
+      if (other.Match != 0) {
+        Match = other.Match;
+      }
+      if (other.IgnoreCastMask != 0) {
+        IgnoreCastMask = other.IgnoreCastMask;
+      }
+      targetConditions_.Add(other.targetConditions_);
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
 
@@ -1595,22 +1631,26 @@ namespace RebornFrame.Spell {
             conditionTags_.AddEntriesFrom(input, _repeated_conditionTags_codec);
             break;
           }
-          case 56: {
-            TargetFilter = input.ReadInt32();
-            break;
-          }
           case 66:
           case 64: {
-            targetFilterTags_.AddEntriesFrom(input, _repeated_targetFilterTags_codec);
-            break;
-          }
-          case 72: {
-            Pick = input.ReadUInt64();
+            tags_.AddEntriesFrom(input, _repeated_tags_codec);
             break;
           }
           case 82:
           case 80: {
             buffIds_.AddEntriesFrom(input, _repeated_buffIds_codec);
+            break;
+          }
+          case 88: {
+            Match = input.ReadInt32();
+            break;
+          }
+          case 98: {
+            targetConditions_.AddEntriesFrom(input, _repeated_targetConditions_codec);
+            break;
+          }
+          case 104: {
+            IgnoreCastMask = input.ReadInt32();
             break;
           }
         }
@@ -1653,22 +1693,255 @@ namespace RebornFrame.Spell {
             conditionTags_.AddEntriesFrom(ref input, _repeated_conditionTags_codec);
             break;
           }
-          case 56: {
-            TargetFilter = input.ReadInt32();
-            break;
-          }
           case 66:
           case 64: {
-            targetFilterTags_.AddEntriesFrom(ref input, _repeated_targetFilterTags_codec);
-            break;
-          }
-          case 72: {
-            Pick = input.ReadUInt64();
+            tags_.AddEntriesFrom(ref input, _repeated_tags_codec);
             break;
           }
           case 82:
           case 80: {
             buffIds_.AddEntriesFrom(ref input, _repeated_buffIds_codec);
+            break;
+          }
+          case 88: {
+            Match = input.ReadInt32();
+            break;
+          }
+          case 98: {
+            targetConditions_.AddEntriesFrom(ref input, _repeated_targetConditions_codec);
+            break;
+          }
+          case 104: {
+            IgnoreCastMask = input.ReadInt32();
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  /// <summary>
+  /// 一次收集上的一条条件。parameters 由 type 对应的条件系统解析。
+  /// </summary>
+  public sealed partial class SpellTargetConditionConfig : pb::IMessage<SpellTargetConditionConfig>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<SpellTargetConditionConfig> _parser = new pb::MessageParser<SpellTargetConditionConfig>(() => new SpellTargetConditionConfig());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<SpellTargetConditionConfig> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::RebornFrame.Spell.SpellModuleDataReflection.Descriptor.MessageTypes[4]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public SpellTargetConditionConfig() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public SpellTargetConditionConfig(SpellTargetConditionConfig other) : this() {
+      type_ = other.type_;
+      parameters_ = other.parameters_;
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public SpellTargetConditionConfig Clone() {
+      return new SpellTargetConditionConfig(this);
+    }
+
+    /// <summary>Field number for the "type" field.</summary>
+    public const int TypeFieldNumber = 1;
+    private ulong type_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public ulong Type {
+      get { return type_; }
+      set {
+        type_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "parameters" field.</summary>
+    public const int ParametersFieldNumber = 2;
+    private pb::ByteString parameters_ = pb::ByteString.Empty;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public pb::ByteString Parameters {
+      get { return parameters_; }
+      set {
+        parameters_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as SpellTargetConditionConfig);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(SpellTargetConditionConfig other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if (Type != other.Type) return false;
+      if (Parameters != other.Parameters) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (Type != 0UL) hash ^= Type.GetHashCode();
+      if (Parameters.Length != 0) hash ^= Parameters.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (Type != 0UL) {
+        output.WriteRawTag(8);
+        output.WriteUInt64(Type);
+      }
+      if (Parameters.Length != 0) {
+        output.WriteRawTag(18);
+        output.WriteBytes(Parameters);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (Type != 0UL) {
+        output.WriteRawTag(8);
+        output.WriteUInt64(Type);
+      }
+      if (Parameters.Length != 0) {
+        output.WriteRawTag(18);
+        output.WriteBytes(Parameters);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (Type != 0UL) {
+        size += 1 + pb::CodedOutputStream.ComputeUInt64Size(Type);
+      }
+      if (Parameters.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeBytesSize(Parameters);
+      }
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(SpellTargetConditionConfig other) {
+      if (other == null) {
+        return;
+      }
+      if (other.Type != 0UL) {
+        Type = other.Type;
+      }
+      if (other.Parameters.Length != 0) {
+        Parameters = other.Parameters;
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+        switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 8: {
+            Type = input.ReadUInt64();
+            break;
+          }
+          case 18: {
+            Parameters = input.ReadBytes();
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+        switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 8: {
+            Type = input.ReadUInt64();
+            break;
+          }
+          case 18: {
+            Parameters = input.ReadBytes();
             break;
           }
         }
@@ -1695,7 +1968,7 @@ namespace RebornFrame.Spell {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::RebornFrame.Spell.SpellModuleDataReflection.Descriptor.MessageTypes[4]; }
+      get { return global::RebornFrame.Spell.SpellModuleDataReflection.Descriptor.MessageTypes[5]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -2041,7 +2314,7 @@ namespace RebornFrame.Spell {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::RebornFrame.Spell.SpellModuleDataReflection.Descriptor.MessageTypes[5]; }
+      get { return global::RebornFrame.Spell.SpellModuleDataReflection.Descriptor.MessageTypes[6]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -2307,7 +2580,7 @@ namespace RebornFrame.Spell {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::RebornFrame.Spell.SpellModuleDataReflection.Descriptor.MessageTypes[6]; }
+      get { return global::RebornFrame.Spell.SpellModuleDataReflection.Descriptor.MessageTypes[7]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -2536,7 +2809,7 @@ namespace RebornFrame.Spell {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::RebornFrame.Spell.SpellModuleDataReflection.Descriptor.MessageTypes[7]; }
+      get { return global::RebornFrame.Spell.SpellModuleDataReflection.Descriptor.MessageTypes[8]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -3423,7 +3696,7 @@ namespace RebornFrame.Spell {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::RebornFrame.Spell.SpellModuleDataReflection.Descriptor.MessageTypes[8]; }
+      get { return global::RebornFrame.Spell.SpellModuleDataReflection.Descriptor.MessageTypes[9]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -3689,7 +3962,7 @@ namespace RebornFrame.Spell {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::RebornFrame.Spell.SpellModuleDataReflection.Descriptor.MessageTypes[9]; }
+      get { return global::RebornFrame.Spell.SpellModuleDataReflection.Descriptor.MessageTypes[10]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -3981,7 +4254,7 @@ namespace RebornFrame.Spell {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::RebornFrame.Spell.SpellModuleDataReflection.Descriptor.MessageTypes[10]; }
+      get { return global::RebornFrame.Spell.SpellModuleDataReflection.Descriptor.MessageTypes[11]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -4301,7 +4574,7 @@ namespace RebornFrame.Spell {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::RebornFrame.Spell.SpellModuleDataReflection.Descriptor.MessageTypes[11]; }
+      get { return global::RebornFrame.Spell.SpellModuleDataReflection.Descriptor.MessageTypes[12]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -4678,7 +4951,7 @@ namespace RebornFrame.Spell {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::RebornFrame.Spell.SpellModuleDataReflection.Descriptor.MessageTypes[12]; }
+      get { return global::RebornFrame.Spell.SpellModuleDataReflection.Descriptor.MessageTypes[13]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -4907,7 +5180,7 @@ namespace RebornFrame.Spell {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::RebornFrame.Spell.SpellModuleDataReflection.Descriptor.MessageTypes[13]; }
+      get { return global::RebornFrame.Spell.SpellModuleDataReflection.Descriptor.MessageTypes[14]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -5099,7 +5372,7 @@ namespace RebornFrame.Spell {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::RebornFrame.Spell.SpellModuleDataReflection.Descriptor.MessageTypes[14]; }
+      get { return global::RebornFrame.Spell.SpellModuleDataReflection.Descriptor.MessageTypes[15]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]

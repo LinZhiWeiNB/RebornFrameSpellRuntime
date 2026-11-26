@@ -2,7 +2,7 @@ syntax = "proto3";
 
 option csharp_namespace = "RebornFrame.Spell";
 
-// 一份法术模块数据。多个开发者可以各提供一份，启动时合并。
+// 一份法术模块数据。多次加载时，相同 ID 以后加载的定义为准。
 message SpellModuleData {
   repeated AttributeDefinitionConfig attributes = 1;
   repeated TagDefinitionConfig tags = 2;
@@ -39,7 +39,7 @@ message SpellPresentationTrack {
   bytes parameters = 4;
 }
 
-// 时间轴上的一条事件。触发后先看持有者条件，再拾取目标，然后提交 Buff。
+// 时间轴上的一条事件。触发后先看持有者条件，再按标签收集单位，条件通过后提交 Buff。
 message SpellEventConfig {
   // SpellEventTrigger：1 OnStart，2 Frame，3 EveryFrames，4 Signal，5 OnEnd。
   int32 trigger = 1;
@@ -48,10 +48,24 @@ message SpellEventConfig {
   int32 cooldown_frames = 4;
   int32 condition = 5;
   repeated uint64 condition_tags = 6;
-  int32 target_filter = 7;
-  repeated uint64 target_filter_tags = 8;
-  uint64 pick = 9;
+  reserved 7, 9;
+  reserved "target_filter", "target_filter_tags", "pick", "pick_match", "pick_conditions";
+  // 要收集的 Tag。单位命中其中任一 Tag 即进入条件检查。
+  repeated uint64 tags = 8;
   repeated uint64 buff_ids = 10;
+  // TagMatch：0 未设置，视为向下匹配；1 Exact，2 Upward，3 Downward，4 Any。
+  int32 match = 11;
+  // 0 核对这次施法标记，1 不核对。
+  int32 ignore_cast_mask = 13;
+  reserved "cast_mask";
+  // 收集到单位后附加的条件。同一个目标上的多条条件全部通过才保留该目标。
+  repeated SpellTargetConditionConfig target_conditions = 12;
+}
+
+// 一次收集上的一条条件。parameters 由 type 对应的条件系统解析。
+message SpellTargetConditionConfig {
+  uint64 type = 1;
+  bytes parameters = 2;
 }
 
 // 自定义属性。默认值写在 attribute_layout。

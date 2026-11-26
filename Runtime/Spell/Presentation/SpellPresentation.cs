@@ -20,9 +20,6 @@ namespace RebornFrame.Spell
         /// <summary>持有者稳定 ID。</summary>
         public ulong OwnerStableId;
 
-        /// <summary>施法时的主目标。没有时为 0。</summary>
-        public ulong PrimaryTargetStableId;
-
         /// <summary>法术定义。</summary>
         public SpellId SpellId;
     }
@@ -310,7 +307,6 @@ namespace RebornFrame.Spell
                         DurationSeconds = track.DurationFrames == 0 ? 0f : durationSeconds,
                         InstanceId = resolved.InstanceId,
                         OwnerStableId = resolved.OwnerStableId,
-                        PrimaryTargetStableId = resolved.PrimaryTargetStableId,
                         SpellId = resolved.SpellId
                     };
                     var scheduled = new ScheduledTrack

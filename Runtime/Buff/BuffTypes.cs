@@ -205,7 +205,10 @@ namespace RebornFrame.Spell
         Intrinsic = 1,
 
         /// <summary>某个 Buff 实例授予的 Tag。</summary>
-        Buff = 2
+        Buff = 2,
+
+        /// <summary>某一次施法标记挂上的 Tag。施法结束时移除。</summary>
+        SpellCast = 3
     }
 
     /// <summary>

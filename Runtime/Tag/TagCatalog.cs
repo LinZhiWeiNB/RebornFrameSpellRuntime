@@ -36,37 +36,32 @@ namespace RebornFrame.Spell
         {
             if (definitions == null) throw new ArgumentNullException(nameof(definitions));
 
-            var sorted = new List<TagDefinition>(definitions.Count + 1);
+            var lastIndex = new Dictionary<ulong, int>(definitions.Count);
             for (var index = 0; index < definitions.Count; index++)
             {
                 var definition = definitions[index];
                 ValidateDefinition(in definition);
-                sorted.Add(definition);
+                lastIndex[definition.Id.Value] = index;
+            }
+
+            var unique = new List<TagDefinition>(lastIndex.Count + 1);
+            for (var index = 0; index < definitions.Count; index++)
+            {
+                var definition = definitions[index];
+                if (lastIndex[definition.Id.Value] != index) continue;
+
+                unique.Add(definition);
             }
 
             EnsureLibraryTag(
-                sorted,
+                unique,
                 new TagDefinition
                 {
                     Id = LibraryTags.Recalculation,
                     ParentId = LibraryTags.None
                 });
 
-            sorted.Sort(DefinitionComparer.Instance);
-            var unique = new List<TagDefinition>(sorted.Count);
-            for (var index = 0; index < sorted.Count; index++)
-            {
-                var definition = sorted[index];
-                if (unique.Count == 0 || unique[unique.Count - 1].Id != definition.Id)
-                {
-                    unique.Add(definition);
-                    continue;
-                }
-
-                if (!unique[unique.Count - 1].Equals(definition))
-                    throw new ArgumentException($"Tag {definition.Id} 存在冲突定义。", nameof(definitions));
-            }
-
+            unique.Sort(DefinitionComparer.Instance);
             ValidateHierarchy(unique);
 
             using var builder = new BlobBuilder(Allocator.Temp);
@@ -120,6 +115,7 @@ namespace RebornFrame.Spell
 
         /// <summary>
         ///     判断已有 Tag 是否命中查询 Tag。自身相等，或已有 Tag 是查询 Tag 的子孙时命中。
+        ///     与 <see cref="Matches" /> 的 <see cref="TagMatch.Downward" /> 相同。
         /// </summary>
         /// <param name="catalog">冻结 Tag 目录。无效时只做精确比较。</param>
         /// <param name="present">单位上已有的 Tag。</param>
@@ -130,18 +126,52 @@ namespace RebornFrame.Spell
             TagId present,
             TagId query)
         {
+            return Matches(catalog, present, query, TagMatch.Downward);
+        }
+
+        /// <summary>
+        ///     判断单位携带的 Tag 是否按指定方式命中查询 Tag。
+        /// </summary>
+        /// <param name="catalog">冻结 Tag 目录。无效时只能做精确比较。</param>
+        /// <param name="present">单位上已有的 Tag。</param>
+        /// <param name="query">配置里的查询 Tag。</param>
+        /// <param name="mode">精确、向上、向下或任意。</param>
+        /// <returns>命中时为 true。</returns>
+        public static bool Matches(
+            BlobAssetReference<TagCatalogBlob> catalog,
+            TagId present,
+            TagId query,
+            TagMatch mode)
+        {
+            if (!ConditionTagParameters.IsHierarchy(mode)) return false;
+
             if (present == query) return true;
 
-            if (!catalog.IsCreated || query == LibraryTags.None) return false;
+            if (mode == TagMatch.Exact
+                || !catalog.IsCreated
+                || present == LibraryTags.None
+                || query == LibraryTags.None)
+                return false;
 
-            var current = present;
+            if ((mode == TagMatch.Upward || mode == TagMatch.Any) && IsAncestor(catalog, present, query))
+                return true;
+
+            return (mode == TagMatch.Downward || mode == TagMatch.Any) && IsAncestor(catalog, query, present);
+        }
+
+        private static bool IsAncestor(
+            BlobAssetReference<TagCatalogBlob> catalog,
+            TagId ancestor,
+            TagId descendant)
+        {
+            var current = descendant;
             for (var depth = 0; depth < MaxHierarchyDepth; depth++)
             {
                 if (!TryFindDefinition(catalog, current, out var definition)
                     || definition.ParentId == LibraryTags.None)
                     return false;
 
-                if (definition.ParentId == query) return true;
+                if (definition.ParentId == ancestor) return true;
 
                 current = definition.ParentId;
             }
