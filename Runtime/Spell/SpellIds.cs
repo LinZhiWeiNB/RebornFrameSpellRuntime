@@ -3,7 +3,7 @@ using System;
 namespace RebornFrame.Spell
 {
     /// <summary>
-    ///     由作者 ID 和作者内部编号组成的法术定义标识。
+    ///     由模组 ID 和模组内部编号组成的法术定义标识。
     /// </summary>
     public readonly struct SpellId : IEquatable<SpellId>, IComparable<SpellId>
     {
@@ -19,17 +19,17 @@ namespace RebornFrame.Spell
             Value = value;
         }
 
-        /// <summary>作者 ID。</summary>
+        /// <summary>模组 ID。</summary>
         public uint AuthorId => (uint)(Value >> 32);
 
-        /// <summary>作者内部编号。</summary>
+        /// <summary>模组内部编号。</summary>
         public uint LocalId => (uint)Value;
 
         /// <summary>
-        ///     组合作者 ID 和作者内部编号。
+        ///     组合模组 ID 和模组内部编号。
         /// </summary>
-        /// <param name="authorId">作者 ID。</param>
-        /// <param name="localId">作者内部编号。</param>
+        /// <param name="authorId">模组 ID。</param>
+        /// <param name="localId">模组内部编号。</param>
         /// <returns>组合后的法术标识。</returns>
         public static SpellId Combine(uint authorId, uint localId)
         {
@@ -86,7 +86,7 @@ namespace RebornFrame.Spell
     }
 
     /// <summary>
-    ///     由作者 ID 和作者内部编号组成的表现轨道种类。
+    ///     由模组 ID 和模组内部编号组成的表现轨道种类。
     /// </summary>
     public readonly struct SpellPresentationTrackId : IEquatable<SpellPresentationTrackId>, IComparable<SpellPresentationTrackId>
     {
@@ -102,17 +102,17 @@ namespace RebornFrame.Spell
             Value = value;
         }
 
-        /// <summary>作者 ID。</summary>
+        /// <summary>模组 ID。</summary>
         public uint AuthorId => (uint)(Value >> 32);
 
-        /// <summary>作者内部编号。</summary>
+        /// <summary>模组内部编号。</summary>
         public uint LocalId => (uint)Value;
 
         /// <summary>
-        ///     组合作者 ID 和作者内部编号。
+        ///     组合模组 ID 和模组内部编号。
         /// </summary>
-        /// <param name="authorId">作者 ID。</param>
-        /// <param name="localId">作者内部编号。</param>
+        /// <param name="authorId">模组 ID。</param>
+        /// <param name="localId">模组内部编号。</param>
         /// <returns>组合后的轨道种类。</returns>
         public static SpellPresentationTrackId Combine(uint authorId, uint localId)
         {

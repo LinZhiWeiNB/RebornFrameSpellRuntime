@@ -3,7 +3,7 @@ using System;
 namespace RebornFrame.Spell
 {
     /// <summary>
-    ///     由作者 ID 和作者内部编号组成的 Buff 定义标识。
+    ///     由模组 ID 和模组内部编号组成的 Buff 定义标识。
     /// </summary>
     public readonly struct BuffId : IEquatable<BuffId>, IComparable<BuffId>
     {
@@ -20,20 +20,20 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        ///     组合作者 ID 和作者内部编号。
+        ///     组合模组 ID 和模组内部编号。
         /// </summary>
-        /// <param name="authorId">作者 ID。</param>
-        /// <param name="localId">作者内部编号。</param>
+        /// <param name="authorId">模组 ID。</param>
+        /// <param name="localId">模组内部编号。</param>
         /// <returns>组合后的 Buff 标识。</returns>
         public static BuffId Combine(uint authorId, uint localId)
         {
             return new BuffId(((ulong)authorId << 32) | localId);
         }
 
-        /// <summary>作者 ID。</summary>
+        /// <summary>模组 ID。</summary>
         public uint AuthorId => (uint)(Value >> 32);
 
-        /// <summary>作者内部编号。</summary>
+        /// <summary>模组内部编号。</summary>
         public uint LocalId => (uint)Value;
 
         /// <inheritdoc />
@@ -86,7 +86,7 @@ namespace RebornFrame.Spell
     }
 
     /// <summary>
-    ///     由作者 ID 和作者内部编号组成的 Buff 效果标识。
+    ///     由模组 ID 和模组内部编号组成的 Buff 效果标识。
     /// </summary>
     public readonly struct BuffEffectId : IEquatable<BuffEffectId>, IComparable<BuffEffectId>
     {
@@ -103,20 +103,20 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        ///     组合作者 ID 和作者内部编号。
+        ///     组合模组 ID 和模组内部编号。
         /// </summary>
-        /// <param name="authorId">作者 ID。</param>
-        /// <param name="localId">作者内部编号。</param>
+        /// <param name="authorId">模组 ID。</param>
+        /// <param name="localId">模组内部编号。</param>
         /// <returns>组合后的效果标识。</returns>
         public static BuffEffectId Combine(uint authorId, uint localId)
         {
             return new BuffEffectId(((ulong)authorId << 32) | localId);
         }
 
-        /// <summary>作者 ID。</summary>
+        /// <summary>模组 ID。</summary>
         public uint AuthorId => (uint)(Value >> 32);
 
-        /// <summary>作者内部编号。</summary>
+        /// <summary>模组内部编号。</summary>
         public uint LocalId => (uint)Value;
 
         /// <inheritdoc />
@@ -169,7 +169,7 @@ namespace RebornFrame.Spell
     }
 
     /// <summary>
-    ///     由作者 ID 和作者内部编号组成的外部信号标识。
+    ///     由模组 ID 和模组内部编号组成的外部信号标识。
     /// </summary>
     public readonly struct BuffSignalId : IEquatable<BuffSignalId>, IComparable<BuffSignalId>
     {
@@ -186,20 +186,20 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        ///     组合作者 ID 和作者内部编号。
+        ///     组合模组 ID 和模组内部编号。
         /// </summary>
-        /// <param name="authorId">作者 ID。</param>
-        /// <param name="localId">作者内部编号。</param>
+        /// <param name="authorId">模组 ID。</param>
+        /// <param name="localId">模组内部编号。</param>
         /// <returns>组合后的信号标识。</returns>
         public static BuffSignalId Combine(uint authorId, uint localId)
         {
             return new BuffSignalId(((ulong)authorId << 32) | localId);
         }
 
-        /// <summary>作者 ID。</summary>
+        /// <summary>模组 ID。</summary>
         public uint AuthorId => (uint)(Value >> 32);
 
-        /// <summary>作者内部编号。</summary>
+        /// <summary>模组内部编号。</summary>
         public uint LocalId => (uint)Value;
 
         /// <inheritdoc />
@@ -252,7 +252,7 @@ namespace RebornFrame.Spell
     }
 
     /// <summary>
-    ///     由作者 ID 和作者内部编号组成的步进时钟种类。
+    ///     由模组 ID 和模组内部编号组成的步进时钟种类。
     /// </summary>
     public readonly struct BuffIteratorId : IEquatable<BuffIteratorId>, IComparable<BuffIteratorId>
     {
@@ -269,20 +269,20 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        ///     组合作者 ID 和作者内部编号。
+        ///     组合模组 ID 和模组内部编号。
         /// </summary>
-        /// <param name="authorId">作者 ID。</param>
-        /// <param name="localId">作者内部编号。</param>
+        /// <param name="authorId">模组 ID。</param>
+        /// <param name="localId">模组内部编号。</param>
         /// <returns>组合后的迭代器标识。</returns>
         public static BuffIteratorId Combine(uint authorId, uint localId)
         {
             return new BuffIteratorId(((ulong)authorId << 32) | localId);
         }
 
-        /// <summary>作者 ID。</summary>
+        /// <summary>模组 ID。</summary>
         public uint AuthorId => (uint)(Value >> 32);
 
-        /// <summary>作者内部编号。</summary>
+        /// <summary>模组内部编号。</summary>
         public uint LocalId => (uint)Value;
 
         /// <inheritdoc />

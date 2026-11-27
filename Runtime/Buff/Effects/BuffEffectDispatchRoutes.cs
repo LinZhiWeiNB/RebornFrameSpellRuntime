@@ -6,7 +6,7 @@ using Unity.Entities;
 namespace RebornFrame.Spell
 {
     /// <summary>
-    ///     按作者和本地编号闭区间把效果分到分发器队列。登记只在初始化时发生，入队不再扫描全部分发器的效果。
+    ///     按模组 ID 和本地编号闭区间把效果分到分发器队列。登记只在初始化时发生，入队不再扫描全部分发器的效果。
     /// </summary>
     public static class BuffEffectDispatchRoutes
     {
@@ -16,7 +16,7 @@ namespace RebornFrame.Spell
         ///     登记一段效果编号。同一分发器可以多次登记。重叠区间直接失败。
         /// </summary>
         /// <param name="world">目标 World。</param>
-        /// <param name="authorId">效果作者 ID。</param>
+        /// <param name="authorId">效果模组 ID。</param>
         /// <param name="localMin">本地编号下界，包含。</param>
         /// <param name="localMax">本地编号上界，包含。</param>
         /// <param name="dispatcherId">已有分发器序号。新分发器传 -1。</param>
@@ -145,7 +145,7 @@ namespace RebornFrame.Spell
             {
                 if (localMin > localMax)
                     throw new ArgumentException(
-                        $"效果作者 {authorId} 的区间 {localMin}-{localMax} 上下界颠倒。");
+                        $"效果模组 ID {authorId} 的区间 {localMin}-{localMax} 上下界颠倒。");
 
                 for (var index = 0; index < _ranges.Length; index++)
                 {
@@ -156,7 +156,7 @@ namespace RebornFrame.Spell
                         continue;
 
                     throw new InvalidOperationException(
-                        $"效果作者 {authorId} 的区间 {localMin}-{localMax} 与已登记区间重叠。");
+                        $"效果模组 ID {authorId} 的区间 {localMin}-{localMax} 与已登记区间重叠。");
                 }
 
                 if (dispatcherId < 0)

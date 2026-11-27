@@ -264,6 +264,7 @@ namespace RebornFrame.Spell
         public void Tick(int logicTick)
         {
             ThrowIfNotStarted();
+            SpellDebug.Tick = logicTick;
             _spellPipeline.Update(logicTick);
             _buffPipeline.BeginUpdate(logicTick);
             _attributePipeline.UpdateOnce();

@@ -21,6 +21,9 @@ namespace RebornFrame.Spell
         private readonly AttributePipelineSystemGroup _pipelineGroup;
         private readonly AttributeRequestListenerSystemGroup _requestListenerGroup;
         private readonly SystemHandle _resolvedEventClearSystem;
+#if DEBUG
+        private readonly SystemHandle _debugRelay;
+#endif
         private readonly World _world;
 
         private bool _disposed;
@@ -36,6 +39,11 @@ namespace RebornFrame.Spell
                 world.GetOrCreateSystemManaged<AttributeRequestListenerSystemGroup>();
             _eventConsumerGroup =
                 world.GetOrCreateSystemManaged<AttributeEventConsumerSystemGroup>();
+#if DEBUG
+            _debugRelay = world.GetOrCreateSystem<SpellDebugAttributeRelaySystem>();
+            _eventConsumerGroup.AddSystemToUpdateList(_debugRelay);
+            _eventConsumerGroup.SortSystems();
+#endif
 
             AttributeModifierAccess.EnsureWorkspace(world.EntityManager);
             _inputSealSystem = world.GetOrCreateSystem<AttributeInputSealSystem>();
@@ -81,6 +89,10 @@ namespace RebornFrame.Spell
             _world.DestroySystem(_currentValueApplySystem);
             _world.DestroySystem(_modifierCalcSystem);
             _world.DestroySystem(_inputSealSystem);
+#if DEBUG
+            if (_debugRelay != default)
+                _world.DestroySystem(_debugRelay);
+#endif
         }
 
         /// <summary>

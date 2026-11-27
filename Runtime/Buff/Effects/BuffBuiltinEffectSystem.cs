@@ -10,7 +10,7 @@ namespace RebornFrame.Spell
         private int _dispatcherId;
 
         /// <summary>
-        ///     登记作者 0、本地编号 1 到 100 的内置效果。
+        ///     登记模组 ID 0、本地编号 1 到 100 的内置效果。
         /// </summary>
         /// <param name="state">系统状态。</param>
         public void OnCreate(ref SystemState state)

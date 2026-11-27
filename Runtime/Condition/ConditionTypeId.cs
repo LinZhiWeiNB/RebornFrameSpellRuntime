@@ -3,7 +3,7 @@ using System;
 namespace RebornFrame.Spell
 {
     /// <summary>
-    ///     由作者 ID 和作者内部编号组成的条件类型。
+    ///     由模组 ID 和模组内部编号组成的条件类型。
     /// </summary>
     public readonly struct ConditionTypeId : IEquatable<ConditionTypeId>, IComparable<ConditionTypeId>
     {
@@ -19,17 +19,17 @@ namespace RebornFrame.Spell
             Value = value;
         }
 
-        /// <summary>作者 ID。</summary>
+        /// <summary>模组 ID。</summary>
         public uint AuthorId => (uint)(Value >> 32);
 
-        /// <summary>作者内部编号。</summary>
+        /// <summary>模组内部编号。</summary>
         public uint LocalId => (uint)Value;
 
         /// <summary>
-        ///     组合作者 ID 和作者内部编号。
+        ///     组合模组 ID 和模组内部编号。
         /// </summary>
-        /// <param name="authorId">作者 ID。</param>
-        /// <param name="localId">作者内部编号。</param>
+        /// <param name="authorId">模组 ID。</param>
+        /// <param name="localId">模组内部编号。</param>
         /// <returns>组合后的条件类型。</returns>
         public static ConditionTypeId Combine(uint authorId, uint localId)
         {

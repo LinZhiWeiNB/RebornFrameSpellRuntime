@@ -3,14 +3,14 @@ using System;
 namespace RebornFrame.Spell
 {
     /// <summary>
-    ///     作者 0、本地编号 0–99 的库保留 Buff 标识。
+    ///     模组 ID 0、本地编号 0–99 的库保留 Buff 标识。
     /// </summary>
     public static class LibraryBuff
     {
-        /// <summary>库使用的作者 ID。</summary>
+        /// <summary>库使用的模组 ID。</summary>
         public const uint AuthorId = 0;
 
-        /// <summary>作者 0 下保留给库的本地编号数量。</summary>
+        /// <summary>模组 ID 0 下保留给库的本地编号数量。</summary>
         public const uint ReservedLocalIdCount = 100;
 
         /// <summary>单次步进请求允许的最大步数。</summary>
@@ -50,9 +50,9 @@ namespace RebornFrame.Spell
         public static BuffEffectId RemoveTagEffect => BuffEffectId.Combine(AuthorId, 4);
 
         /// <summary>
-        ///     判断标识是否落在作者 0 的保留编号内。
+        ///     判断标识是否落在模组 ID 0 的保留编号内。
         /// </summary>
-        /// <param name="authorId">作者 ID。</param>
+        /// <param name="authorId">模组 ID。</param>
         /// <param name="localId">本地编号。</param>
         /// <returns>属于保留区间时为 true。</returns>
         public static bool IsReserved(uint authorId, uint localId)
@@ -70,8 +70,8 @@ namespace RebornFrame.Spell
         /// <summary>
         ///     创建效果声明。
         /// </summary>
-        /// <param name="authorId">作者 ID。</param>
-        /// <param name="localId">作者内部编号。</param>
+        /// <param name="authorId">模组 ID。</param>
+        /// <param name="localId">模组内部编号。</param>
         /// <param name="version">载荷版本。</param>
         /// <param name="displayKey">编辑器显示用的本地化 Key。</param>
         public BuffEffectAttribute(
@@ -86,10 +86,10 @@ namespace RebornFrame.Spell
             DisplayKey = displayKey ?? string.Empty;
         }
 
-        /// <summary>作者 ID。</summary>
+        /// <summary>模组 ID。</summary>
         public uint AuthorId { get; }
 
-        /// <summary>作者内部编号。</summary>
+        /// <summary>模组内部编号。</summary>
         public uint LocalId { get; }
 
         /// <summary>载荷版本。</summary>

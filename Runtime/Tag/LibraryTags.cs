@@ -1,7 +1,7 @@
 namespace RebornFrame.Spell
 {
     /// <summary>
-    ///     作者 0、本地编号 0–99 的库保留 Tag。
+    ///     模组 ID 0、本地编号 0–99 的库保留 Tag。
     ///     这些编号不留给开发者在外部配置中创建；未列出的槽位保持空置。
     /// </summary>
     /// <remarks>
@@ -27,10 +27,10 @@ namespace RebornFrame.Spell
     /// </remarks>
     public static class LibraryTags
     {
-        /// <summary>开发者与库共用的作者 ID。</summary>
+        /// <summary>开发者与库共用的模组 ID。</summary>
         public const uint AuthorId = 0;
 
-        /// <summary>作者 0 下保留给库的本地编号数量。</summary>
+        /// <summary>模组 ID 0 下保留给库的本地编号数量。</summary>
         public const uint ReservedLocalIdCount = 100;
 
         /// <summary>
@@ -42,7 +42,7 @@ namespace RebornFrame.Spell
         public static TagId Recalculation => TagId.Combine(AuthorId, 1);
 
         /// <summary>
-        ///     判断是否落在作者 0 的库保留编号内。
+        ///     判断是否落在模组 ID 0 的库保留编号内。
         /// </summary>
         /// <param name="id">待检查的 Tag。</param>
         /// <returns>属于保留区间时为 true。</returns>

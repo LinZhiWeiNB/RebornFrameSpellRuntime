@@ -38,7 +38,7 @@ namespace RebornFrame.Spell.Tests
         }
 
         /// <summary>
-        ///     验证作者 0 的全部库保留编号都不能由外部创建。
+        ///     验证模组 ID 0 的全部库保留编号都不能由外部创建。
         /// </summary>
         /// <param name="localId">待验证的保留本地编号。</param>
         [TestCase(0u)]
@@ -61,7 +61,7 @@ namespace RebornFrame.Spell.Tests
         }
 
         /// <summary>
-        ///     验证作者 0 且本地编号不小于 100 的开发者 Tag 可以创建。
+        ///     验证模组 ID 0 且本地编号不小于 100 的开发者 Tag 可以创建。
         /// </summary>
         [Test]
         public void Build_DeveloperAuthorZero_AllowsLocalIdAtLeastReservedCount()

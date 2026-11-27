@@ -3,7 +3,7 @@ using System;
 namespace RebornFrame.Spell
 {
     /// <summary>
-    ///     由作者 ID 和作者内部编号组成的全局 Tag 标识。
+    ///     由模组 ID 和模组内部编号组成的全局 Tag 标识。
     /// </summary>
     public readonly struct TagId : IEquatable<TagId>, IComparable<TagId>
     {
@@ -20,20 +20,20 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        ///     组合作者 ID 和作者内部编号。
+        ///     组合模组 ID 和模组内部编号。
         /// </summary>
-        /// <param name="authorId">作者 ID。</param>
-        /// <param name="localId">作者内部编号。</param>
+        /// <param name="authorId">模组 ID。</param>
+        /// <param name="localId">模组内部编号。</param>
         /// <returns>组合后的 Tag 标识。</returns>
         public static TagId Combine(uint authorId, uint localId)
         {
             return new TagId(((ulong)authorId << 32) | localId);
         }
 
-        /// <summary>作者 ID。</summary>
+        /// <summary>模组 ID。</summary>
         public uint AuthorId => (uint)(Value >> 32);
 
-        /// <summary>作者内部编号。</summary>
+        /// <summary>模组内部编号。</summary>
         public uint LocalId => (uint)Value;
 
         /// <inheritdoc />
