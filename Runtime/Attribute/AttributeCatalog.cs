@@ -46,41 +46,37 @@ namespace RebornFrame.Spell
     public static class AttributeCatalog
     {
         /// <summary>
-        ///     校验、排序并冻结全局属性定义。重复且完全一致的定义会合并。
+        ///     校验、排序并冻结全局属性定义。同一 ID 以后出现的定义为准。
         /// </summary>
         /// <param name="definitions">待构建的属性定义。</param>
         /// <param name="allocator">BlobAsset 的持久分配器。</param>
         /// <returns>冻结后的属性目录。</returns>
         /// <exception cref="ArgumentNullException">定义列表为 null。</exception>
-        /// <exception cref="ArgumentException">定义非法或同一 ID 的定义冲突。</exception>
+        /// <exception cref="ArgumentException">定义非法。</exception>
         public static BlobAssetReference<AttributeCatalogBlob> Build(
             IReadOnlyList<AttributeDefinition> definitions,
             Allocator allocator)
         {
             if (definitions == null) throw new ArgumentNullException(nameof(definitions));
 
-            var sorted = new List<AttributeDefinition>(definitions.Count);
+            var lastIndex = new Dictionary<ulong, int>(definitions.Count);
             for (var index = 0; index < definitions.Count; index++)
             {
                 var definition = definitions[index];
                 ValidateDefinition(in definition);
-                sorted.Add(definition);
+                lastIndex[definition.Id.Value] = index;
             }
 
-            sorted.Sort(DefinitionComparer.Instance);
-            var unique = new List<AttributeDefinition>(sorted.Count);
-            for (var index = 0; index < sorted.Count; index++)
+            var unique = new List<AttributeDefinition>(lastIndex.Count);
+            for (var index = 0; index < definitions.Count; index++)
             {
-                var definition = sorted[index];
-                if (unique.Count == 0 || unique[unique.Count - 1].Id != definition.Id)
-                {
-                    unique.Add(definition);
-                    continue;
-                }
+                var definition = definitions[index];
+                if (lastIndex[definition.Id.Value] != index) continue;
 
-                if (!unique[unique.Count - 1].Equals(definition))
-                    throw new ArgumentException($"属性 {definition.Id} 存在冲突定义。", nameof(definitions));
+                unique.Add(definition);
             }
+
+            unique.Sort(DefinitionComparer.Instance);
 
             using var builder = new BlobBuilder(Allocator.Temp);
             ref var root = ref builder.ConstructRoot<AttributeCatalogBlob>();
@@ -97,7 +93,7 @@ namespace RebornFrame.Spell
         /// <param name="preset">单位拥有的属性及默认值。</param>
         /// <param name="allocator">BlobAsset 的持久分配器。</param>
         /// <returns>按属性 ID 排序的共享布局。</returns>
-        /// <exception cref="ArgumentException">目录无效、预设重复或默认值非法。</exception>
+        /// <exception cref="ArgumentException">目录无效或默认值非法。</exception>
         /// <exception cref="ArgumentNullException">预设列表为 null。</exception>
         public static BlobAssetReference<AttributeLayoutBlob> BuildLayout(
             BlobAssetReference<AttributeCatalogBlob> catalog,
@@ -108,21 +104,25 @@ namespace RebornFrame.Spell
 
             if (preset == null) throw new ArgumentNullException(nameof(preset));
 
-            var sorted = new List<UnitAttributePresetEntry>(preset.Count);
-            for (var index = 0; index < preset.Count; index++) sorted.Add(preset[index]);
+            var lastIndex = new Dictionary<ulong, int>(preset.Count);
+            for (var index = 0; index < preset.Count; index++)
+                lastIndex[preset[index].Id.Value] = index;
+
+            var sorted = new List<UnitAttributePresetEntry>(lastIndex.Count);
+            for (var index = 0; index < preset.Count; index++)
+            {
+                if (lastIndex[preset[index].Id.Value] != index) continue;
+
+                sorted.Add(preset[index]);
+            }
 
             sorted.Sort(PresetComparer.Instance);
             using var builder = new BlobBuilder(Allocator.Temp);
             ref var root = ref builder.ConstructRoot<AttributeLayoutBlob>();
             var entries = builder.Allocate(ref root.Entries, sorted.Count);
-            AttributeId previousId = default;
-            var hasPrevious = false;
             for (var index = 0; index < sorted.Count; index++)
             {
                 var item = sorted[index];
-                if (hasPrevious && item.Id == previousId)
-                    throw new ArgumentException($"单位预设重复声明属性 {item.Id}。", nameof(preset));
-
                 if (!TryFindDefinitionIndex(catalog, item.Id, out var definitionIndex))
                     throw new ArgumentException($"单位预设引用了未知属性 {item.Id}。", nameof(preset));
 
@@ -135,8 +135,6 @@ namespace RebornFrame.Spell
                     DefinitionIndex = definitionIndex,
                     DefaultBits = item.DefaultValue.Raw
                 };
-                previousId = item.Id;
-                hasPrevious = true;
             }
 
             return builder.CreateBlobAssetReference<AttributeLayoutBlob>(allocator);

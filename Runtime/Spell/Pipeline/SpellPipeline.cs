@@ -13,6 +13,8 @@ namespace RebornFrame.Spell
     public sealed class SpellPipeline : IDisposable
     {
         private readonly SystemHandle _clearSystem;
+        private readonly SystemHandle _conditionBuiltin;
+        private readonly ConditionCheckSystemGroup _conditionGroup;
         private readonly SpellEventConsumerSystemGroup _eventGroup;
         private readonly SystemHandle _lifecycleSystem;
         private readonly SystemHandle _presentationSystem;
@@ -28,6 +30,10 @@ namespace RebornFrame.Spell
             _lifecycleSystem = world.GetOrCreateSystem<SpellLifecycleSystem>();
             _clearSystem = world.GetOrCreateSystem<SpellClearSystem>();
             _presentationSystem = world.GetOrCreateSystem<SpellPresentationDispatchSystem>();
+            _conditionGroup = world.GetOrCreateSystemManaged<ConditionCheckSystemGroup>();
+            _conditionBuiltin = world.GetOrCreateSystem<ConditionBuiltinSystem>();
+            _conditionGroup.AddSystemToUpdateList(_conditionBuiltin);
+            _conditionGroup.SortSystems();
             SpellPresentation.Attach(world);
             _pipelineGroup.AddSystemToUpdateList(_lifecycleSystem);
             _pipelineGroup.AddSystemToUpdateList(_eventGroup);
@@ -49,9 +55,11 @@ namespace RebornFrame.Spell
 
             _world.DestroySystemManaged(_pipelineGroup);
             _world.DestroySystemManaged(_eventGroup);
+            _world.DestroySystemManaged(_conditionGroup);
             _world.DestroySystem(_clearSystem);
             _world.DestroySystem(_lifecycleSystem);
             _world.DestroySystem(_presentationSystem);
+            _world.DestroySystem(_conditionBuiltin);
         }
 
         /// <summary>

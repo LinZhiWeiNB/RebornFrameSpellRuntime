@@ -32,20 +32,27 @@ namespace RebornFrame.Spell.Tests
         }
 
         /// <summary>
-        ///     验证同一 ID 的冲突定义会让启动期构建失败。
+        ///     验证同一 ID 以后出现的属性定义为准。
         /// </summary>
         [Test]
-        public void Build_ConflictingDuplicate_Throws()
+        public void Build_LaterDuplicate_ReplacesDefinition()
         {
             var id = AttributeId.Combine(1, 9);
             var first = Numeric(id);
             var second = first;
             second.Behavior = AttributeBehavior.Marker;
-
-            Assert.Throws<ArgumentException>(() =>
-                AttributeCatalog.Build(
-                    new[] { first, second },
-                    Allocator.Persistent));
+            var catalog = AttributeCatalog.Build(
+                new[] { first, second },
+                Allocator.Persistent);
+            try
+            {
+                Assert.AreEqual(1, catalog.Value.Definitions.Length);
+                Assert.AreEqual(AttributeBehavior.Marker, catalog.Value.Definitions[0].Behavior);
+            }
+            finally
+            {
+                catalog.Dispose();
+            }
         }
 
         /// <summary>

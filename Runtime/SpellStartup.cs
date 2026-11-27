@@ -7,7 +7,7 @@ namespace RebornFrame.Spell
 {
     /// <summary>
     ///     一场战斗的 Spell 启动器。多次加入的目录在 <see cref="Start" /> 时合并，
-    ///     相同定义保留一份，同一 ID 的冲突定义会失败。
+    ///     相同 ID 以后加入的定义为准。
     /// </summary>
     /// <remarks>
     ///     <see cref="Start" /> 不接收 Blob。它冻结已加入的定义，创建 Tag、属性、Buff 和法术
@@ -56,7 +56,7 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        ///     追加一批 Tag。可以多次调用，相同定义会在启动时合并。
+        ///     追加一批 Tag。可以多次调用，相同 ID 以后加入的定义为准。
         /// </summary>
         /// <param name="definitions">待加入的 Tag 定义。</param>
         /// <exception cref="ArgumentNullException">定义列表为 null。</exception>
@@ -70,7 +70,7 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        ///     追加一批属性定义。可以多次调用，相同定义会在启动时合并。
+        ///     追加一批属性定义。可以多次调用，相同 ID 以后加入的定义为准。
         /// </summary>
         /// <param name="definitions">待加入的属性定义。</param>
         /// <exception cref="ArgumentNullException">定义列表为 null。</exception>
@@ -84,7 +84,7 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        ///     追加单位共享属性布局。可以多次调用，相同属性且默认值一致的项会合并。
+        ///     追加单位共享属性布局。可以多次调用，相同属性以后加入的默认值为准。
         /// </summary>
         /// <param name="preset">单位预设。</param>
         /// <exception cref="ArgumentNullException">预设列表为 null。</exception>
@@ -98,7 +98,7 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        ///     追加一批 Buff 定义。可以多次调用，内容一致的定义会在启动时合并。
+        ///     追加一批 Buff 定义。可以多次调用，相同 ID 以后加入的定义为准。
         /// </summary>
         /// <param name="definitions">待加入的 Buff 定义。</param>
         /// <exception cref="ArgumentNullException">定义列表为 null。</exception>
@@ -118,7 +118,7 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        ///     追加一批法术定义。可以多次调用，内容一致的定义会在启动时合并。
+        ///     追加一批法术定义。可以多次调用，相同 ID 以后加入的定义为准。
         /// </summary>
         /// <param name="definitions">待加入的法术定义。</param>
         /// <exception cref="ArgumentNullException">定义列表为 null。</exception>
@@ -181,7 +181,7 @@ namespace RebornFrame.Spell
         /// </summary>
         /// <param name="world">承载本场战斗的有效 World。</param>
         /// <exception cref="ArgumentNullException">World 为 null。</exception>
-        /// <exception cref="ArgumentException">World 已销毁，或目录定义冲突。</exception>
+        /// <exception cref="ArgumentException">World 已销毁，或目录定义非法。</exception>
         /// <exception cref="InvalidOperationException">已经启动、已经释放，或 World 里已有对应目录。</exception>
         public void Start(World world)
         {
@@ -208,7 +208,7 @@ namespace RebornFrame.Spell
             {
                 tags = TagCatalog.Build(_tags, Allocator.Persistent);
                 attributes = AttributeCatalog.Build(_attributes, Allocator.Persistent);
-                layout = AttributeCatalog.BuildLayout(attributes, MergeLayout(), Allocator.Persistent);
+                layout = AttributeCatalog.BuildLayout(attributes, _layout, Allocator.Persistent);
                 buffs = BuffCatalog.Build(_buffs, Allocator.Persistent, out var runtimeEffects);
                 spells = SpellCatalog.Build(_spells, KnownBuffIds(), Allocator.Persistent);
 
@@ -322,27 +322,6 @@ namespace RebornFrame.Spell
             return ids;
         }
 
-        private List<UnitAttributePresetEntry> MergeLayout()
-        {
-            var sorted = new List<UnitAttributePresetEntry>(_layout);
-            sorted.Sort(PresetComparer.Instance);
-            var unique = new List<UnitAttributePresetEntry>(sorted.Count);
-            for (var index = 0; index < sorted.Count; index++)
-            {
-                var entry = sorted[index];
-                if (unique.Count == 0 || unique[unique.Count - 1].Id != entry.Id)
-                {
-                    unique.Add(entry);
-                    continue;
-                }
-
-                if (!unique[unique.Count - 1].DefaultValue.Equals(entry.DefaultValue))
-                    throw new ArgumentException($"属性 {entry.Id} 的单位默认值冲突。");
-            }
-
-            return unique;
-        }
-
         private static void DestroyIfExists(EntityManager entityManager, Entity entity)
         {
             if (entityManager.Exists(entity)) entityManager.DestroyEntity(entity);
@@ -358,14 +337,5 @@ namespace RebornFrame.Spell
             }
         }
 
-        private sealed class PresetComparer : IComparer<UnitAttributePresetEntry>
-        {
-            internal static readonly PresetComparer Instance = new();
-
-            public int Compare(UnitAttributePresetEntry left, UnitAttributePresetEntry right)
-            {
-                return left.Id.CompareTo(right.Id);
-            }
-        }
     }
 }

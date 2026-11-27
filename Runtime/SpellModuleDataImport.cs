@@ -141,9 +141,10 @@ namespace RebornFrame.Spell
                 CooldownFrames = source.CooldownFrames,
                 Condition = (BuffTagQuery)source.Condition,
                 ConditionTags = TagIds(source.ConditionTags),
-                TargetFilter = (BuffTagQuery)source.TargetFilter,
-                TargetFilterTags = TagIds(source.TargetFilterTags),
-                Pick = new SpellPickId(source.Pick),
+                Tags = TagIds(source.Tags),
+                Match = (TagMatch)source.Match,
+                IgnoreCastMask = source.IgnoreCastMask,
+                TargetConditions = Conditions(source.TargetConditions),
                 Buffs = BuffIds(source.BuffIds)
             };
         }
@@ -175,6 +176,24 @@ namespace RebornFrame.Spell
             for (var index = 0; index < source.Count; index++) buffs.Add(new BuffId(source[index]));
 
             return buffs;
+        }
+
+        private static List<SpellConditionAuthoring> Conditions(RepeatedField<SpellTargetConditionConfig> source)
+        {
+            var conditions = new List<SpellConditionAuthoring>(source.Count);
+            for (var index = 0; index < source.Count; index++)
+            {
+                var condition = source[index];
+                conditions.Add(new SpellConditionAuthoring
+                {
+                    Type = new ConditionTypeId(condition.Type),
+                    Parameters = condition.Parameters.Length == 0
+                        ? Array.Empty<byte>()
+                        : condition.Parameters.ToByteArray()
+                });
+            }
+
+            return conditions;
         }
 
         private static BuffDefinitionData Buff(BuffDefinitionConfig source)

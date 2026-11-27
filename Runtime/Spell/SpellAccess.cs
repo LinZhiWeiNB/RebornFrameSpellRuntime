@@ -31,7 +31,6 @@ namespace RebornFrame.Spell
             entityManager.AddComponentData(entity, new SpellCatalogReference { Value = catalog });
             entityManager.AddComponentData(entity, new SpellSimulationState());
             entityManager.AddBuffer<PendingSpellCastRequest>(entity);
-            entityManager.AddBuffer<PendingSpellExplicitTarget>(entity);
             entityManager.AddBuffer<PendingSpellAimByte>(entity);
             entityManager.AddBuffer<PendingSpellGrantRequest>(entity);
             entityManager.AddBuffer<PendingSpellCancelRequest>(entity);
@@ -60,7 +59,6 @@ namespace RebornFrame.Spell
                 throw new InvalidOperationException("单位已经初始化法术。");
 
             entityManager.AddBuffer<SpellInstanceElement>(entity);
-            entityManager.AddBuffer<SpellExplicitTargetElement>(entity);
             entityManager.AddBuffer<SpellAimByteElement>(entity);
             entityManager.AddBuffer<SpellCooldownElement>(entity);
             entityManager.AddBuffer<SpellEventCooldownElement>(entity);
@@ -68,61 +66,122 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        ///     提交一次主动施法。主目标可以是 0。
+        ///     分配一次施法标记。同一次施法选中的目标都挂在这个标记下，别的施法看不到。
+        /// </summary>
+        /// <param name="entityManager">目标 World 的实体管理器。</param>
+        /// <param name="castMark">新的施法标记。失败时为 0。</param>
+        /// <returns>分配成功时为 true。</returns>
+        public static bool TryAllocateCastMark(EntityManager entityManager, out long castMark)
+        {
+            if (!TryGetSingleton(entityManager, out var singleton))
+            {
+                castMark = 0;
+                return false;
+            }
+
+            var state = entityManager.GetComponentData<SpellSimulationState>(singleton);
+            if (state.LastCastMark == long.MaxValue) throw new InvalidOperationException("施法标记已耗尽。");
+
+            state.LastCastMark++;
+            entityManager.SetComponentData(singleton, state);
+            castMark = state.LastCastMark;
+            return true;
+        }
+
+        /// <summary>
+        ///     把 Tag 挂到目标上，并记成这一次施法的目标。
+        /// </summary>
+        /// <param name="entityManager">目标 World 的实体管理器。</param>
+        /// <param name="castMark">施法标记。</param>
+        /// <param name="targetStableId">目标稳定 ID。</param>
+        /// <param name="tag">要挂上的 Tag。</param>
+        /// <returns>目标存在且标记、Tag 有效时为 true。</returns>
+        public static bool TryMarkTarget(
+            EntityManager entityManager,
+            long castMark,
+            ulong targetStableId,
+            TagId tag)
+        {
+            if (castMark <= 0
+                || targetStableId == 0
+                || tag == LibraryTags.None
+                || !TryFindUnit(entityManager, targetStableId, out var entity)
+                || !entityManager.HasBuffer<GameplayTagContribution>(entity))
+                return false;
+
+            var tags = entityManager.GetBuffer<GameplayTagContribution>(entity);
+            for (var index = 0; index < tags.Length; index++)
+            {
+                var contribution = tags[index];
+                if (contribution.SourceKind == GameplayTagSourceKind.SpellCast
+                    && contribution.SourceId == castMark
+                    && contribution.Tag == tag)
+                    return true;
+            }
+
+            tags.Add(new GameplayTagContribution
+            {
+                Tag = tag,
+                SourceKind = GameplayTagSourceKind.SpellCast,
+                SourceId = castMark
+            });
+            return true;
+        }
+
+        /// <summary>
+        ///     提交一次主动施法。目标要先用同一次施法标记挂上 Tag。
         /// </summary>
         /// <param name="entityManager">目标 World 的实体管理器。</param>
         /// <param name="spellId">法术定义。</param>
         /// <param name="ownerStableId">施法者稳定 ID。</param>
-        /// <param name="primaryTargetStableId">主目标稳定 ID。</param>
+        /// <returns>请求成功入队时为 true。</returns>
+        public static bool TryBeginCast(EntityManager entityManager, SpellId spellId, ulong ownerStableId)
+        {
+            return TryBeginCast(entityManager, spellId, ownerStableId, 0, null);
+        }
+
+        /// <summary>
+        ///     提交一次主动施法，并带上这次施法的目标标记。
+        /// </summary>
+        /// <param name="entityManager">目标 World 的实体管理器。</param>
+        /// <param name="spellId">法术定义。</param>
+        /// <param name="ownerStableId">施法者稳定 ID。</param>
+        /// <param name="castMark">施法标记。0 表示这次没有目标标记。</param>
         /// <returns>请求成功入队时为 true。</returns>
         public static bool TryBeginCast(
             EntityManager entityManager,
             SpellId spellId,
             ulong ownerStableId,
-            ulong primaryTargetStableId)
+            long castMark)
         {
-            return TryBeginCast(entityManager, spellId, ownerStableId, primaryTargetStableId, null, null);
+            return TryBeginCast(entityManager, spellId, ownerStableId, castMark, null);
         }
 
         /// <summary>
-        ///     提交一次主动施法，并冻结显式目标和瞄准载荷。
+        ///     提交一次主动施法，并冻结瞄准载荷。
         /// </summary>
         /// <param name="entityManager">目标 World 的实体管理器。</param>
         /// <param name="spellId">法术定义。</param>
         /// <param name="ownerStableId">施法者稳定 ID。</param>
-        /// <param name="primaryTargetStableId">主目标稳定 ID。</param>
-        /// <param name="explicitTargets">施法当时选定的单位。null 表示没有。</param>
+        /// <param name="castMark">施法标记。0 表示这次没有目标标记。</param>
         /// <param name="aim">玩法自己解释的瞄准字节。null 表示没有。</param>
         /// <returns>请求成功入队时为 true。</returns>
         public static bool TryBeginCast(
             EntityManager entityManager,
             SpellId spellId,
             ulong ownerStableId,
-            ulong primaryTargetStableId,
-            ulong[] explicitTargets,
+            long castMark,
             byte[] aim)
         {
-            var explicitCount = explicitTargets?.Length ?? 0;
             var aimLength = aim?.Length ?? 0;
             if (spellId.Value == 0
                 || ownerStableId == 0
-                || explicitCount > LibrarySpell.MaxExplicitTargets
+                || castMark < 0
                 || aimLength > LibrarySpell.MaxAimBytes
                 || !TryGetSingleton(entityManager, out var singleton))
                 return false;
 
-            for (var index = 0; index < explicitCount; index++)
-                if (explicitTargets[index] == 0)
-                    return false;
-
             var requestId = AllocateRequestId(entityManager, singleton);
-            var explicitOffset = entityManager.GetBuffer<PendingSpellExplicitTarget>(singleton).Length;
-            for (var index = 0; index < explicitCount; index++)
-                entityManager.GetBuffer<PendingSpellExplicitTarget>(singleton).Add(new PendingSpellExplicitTarget
-                {
-                    Target = explicitTargets[index]
-                });
-
             var aimOffset = entityManager.GetBuffer<PendingSpellAimByte>(singleton).Length;
             for (var index = 0; index < aimLength; index++)
                 entityManager.GetBuffer<PendingSpellAimByte>(singleton).Add(new PendingSpellAimByte
@@ -135,9 +194,7 @@ namespace RebornFrame.Spell
                 RequestId = requestId,
                 SpellId = spellId,
                 OwnerStableId = ownerStableId,
-                PrimaryTargetStableId = primaryTargetStableId,
-                ExplicitOffset = explicitOffset,
-                ExplicitCount = explicitCount,
+                CastMark = castMark,
                 AimOffset = aimOffset,
                 AimLength = aimLength
             });
@@ -153,7 +210,27 @@ namespace RebornFrame.Spell
         /// <returns>请求成功入队时为 true。</returns>
         public static bool TryGrant(EntityManager entityManager, SpellId spellId, ulong ownerStableId)
         {
-            if (spellId.Value == 0 || ownerStableId == 0 || !TryGetSingleton(entityManager, out var singleton))
+            return TryGrant(entityManager, spellId, ownerStableId, 0);
+        }
+
+        /// <summary>
+        ///     提交把被动法术挂到单位上的请求，并带上这次的目标标记。
+        /// </summary>
+        /// <param name="entityManager">目标 World 的实体管理器。</param>
+        /// <param name="spellId">被动法术定义。</param>
+        /// <param name="ownerStableId">持有者稳定 ID。</param>
+        /// <param name="castMark">施法标记。0 表示这次没有目标标记。</param>
+        /// <returns>请求成功入队时为 true。</returns>
+        public static bool TryGrant(
+            EntityManager entityManager,
+            SpellId spellId,
+            ulong ownerStableId,
+            long castMark)
+        {
+            if (spellId.Value == 0
+                || ownerStableId == 0
+                || castMark < 0
+                || !TryGetSingleton(entityManager, out var singleton))
                 return false;
 
             var requestId = AllocateRequestId(entityManager, singleton);
@@ -161,7 +238,8 @@ namespace RebornFrame.Spell
             {
                 RequestId = requestId,
                 SpellId = spellId,
-                OwnerStableId = ownerStableId
+                OwnerStableId = ownerStableId,
+                CastMark = castMark
             });
             return true;
         }
@@ -274,6 +352,22 @@ namespace RebornFrame.Spell
 
             schemaHash = catalog.Value.SchemaHash;
             return true;
+        }
+
+        private static bool TryFindUnit(EntityManager entityManager, ulong stableId, out Entity entity)
+        {
+            using var query = entityManager.CreateEntityQuery(ComponentType.ReadOnly<SpellStableId>());
+            using var entities = query.ToEntityArray(Allocator.Temp);
+            for (var index = 0; index < entities.Length; index++)
+            {
+                if (entityManager.GetComponentData<SpellStableId>(entities[index]).Value != stableId) continue;
+
+                entity = entities[index];
+                return true;
+            }
+
+            entity = Entity.Null;
+            return false;
         }
 
         private static bool TryGetSingleton(EntityManager entityManager, out Entity entity)

@@ -50,22 +50,22 @@ namespace RebornFrame.Spell.Tests
             SpellPresentation.SetFrameDuration(0.5f);
             Start(Track(Kind, 2, 0, new byte[] { 1 }));
             var caster = Unit(1);
-            Assert.IsTrue(SpellAccess.TryBeginCast(_world.EntityManager, Fireball, 1, 7));
+            Assert.IsTrue(SpellAccess.TryBeginCast(_world.EntityManager, Fireball, 1));
 
             _startup.Tick(0);
-            CollectionAssert.AreEqual(new[] { "create:7" }, _calls);
+            CollectionAssert.AreEqual(new[] { "create:1" }, _calls);
 
             SpellPresentation.Advance(0.4f);
-            CollectionAssert.AreEqual(new[] { "create:7" }, _calls);
+            CollectionAssert.AreEqual(new[] { "create:1" }, _calls);
 
             SpellPresentation.Advance(0.6f);
-            CollectionAssert.AreEqual(new[] { "create:7", "play" }, _calls);
+            CollectionAssert.AreEqual(new[] { "create:1", "play" }, _calls);
 
             var instanceId = _world.EntityManager.GetBuffer<SpellInstanceElement>(caster)[0].InstanceId;
             Assert.IsTrue(SpellAccess.TryCancel(_world.EntityManager, instanceId));
             _startup.Tick(1);
             CollectionAssert.AreEqual(
-                new[] { "create:7", "play", "stop:" + SpellEndReason.Cancelled },
+                new[] { "create:1", "play", "stop:" + SpellEndReason.Cancelled },
                 _calls);
         }
 
@@ -76,13 +76,13 @@ namespace RebornFrame.Spell.Tests
             SpellPresentation.SetFrameDuration(0.5f);
             Start(Track(Kind, 0, 1, Array.Empty<byte>()));
             var caster = Unit(1);
-            Assert.IsTrue(SpellAccess.TryBeginCast(_world.EntityManager, Fireball, 1, 0));
+            Assert.IsTrue(SpellAccess.TryBeginCast(_world.EntityManager, Fireball, 1));
 
             _startup.Tick(0);
-            CollectionAssert.AreEqual(new[] { "create:0", "play" }, _calls);
+            CollectionAssert.AreEqual(new[] { "create:1", "play" }, _calls);
 
             SpellPresentation.Advance(0.5f);
-            CollectionAssert.AreEqual(new[] { "create:0", "play", "stop:" + SpellEndReason.None }, _calls);
+            CollectionAssert.AreEqual(new[] { "create:1", "play", "stop:" + SpellEndReason.None }, _calls);
             Assert.AreEqual(1, _world.EntityManager.GetBuffer<SpellInstanceElement>(caster).Length);
         }
 
@@ -100,16 +100,16 @@ namespace RebornFrame.Spell.Tests
 
             SpellPresentation.ShowFrame(catalog, Fireball, 1, 3, false);
 
-            CollectionAssert.AreEqual(new[] { "create:0", "show:1:0" }, late);
+            CollectionAssert.AreEqual(new[] { "create:1", "show:1:0" }, late);
             Assert.AreEqual(0, early.Count);
 
             SpellPresentation.ShowFrame(catalog, Fireball, 1, 8, true);
 
-            CollectionAssert.AreEqual(new[] { "create:0", "show:1:0", "stop:" + SpellEndReason.None }, late);
-            CollectionAssert.AreEqual(new[] { "create:0", "show:2:1" }, early);
+            CollectionAssert.AreEqual(new[] { "create:1", "show:1:0", "stop:" + SpellEndReason.None }, late);
+            CollectionAssert.AreEqual(new[] { "create:1", "show:2:1" }, early);
 
             SpellPresentation.Advance(1f);
-            CollectionAssert.AreEqual(new[] { "create:0", "show:2:1", "stop:" + SpellEndReason.None }, early);
+            CollectionAssert.AreEqual(new[] { "create:1", "show:2:1", "stop:" + SpellEndReason.None }, early);
         }
 
         private void Start(params SpellPresentationTrack[] tracks)
@@ -178,7 +178,7 @@ namespace RebornFrame.Spell.Tests
 
             public ISpellPresentationTrack Create(ReadOnlySpan<byte> parameters, in SpellPresentationContext context)
             {
-                _calls.Add("create:" + context.PrimaryTargetStableId);
+                _calls.Add("create:" + context.OwnerStableId);
                 return new RecordingTrack(_calls);
             }
         }

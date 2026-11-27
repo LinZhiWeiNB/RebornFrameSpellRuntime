@@ -26,6 +26,9 @@ namespace RebornFrame.Spell
 
         /// <summary>最后分配的请求 ID。0 表示尚未分配。</summary>
         public ulong LastRequestId;
+
+        /// <summary>最后分配的施法标记。0 表示尚未分配。</summary>
+        public long LastCastMark;
     }
 
     /// <summary>一条已经创建的法术实例。</summary>
@@ -47,8 +50,8 @@ namespace RebornFrame.Spell
         /// <summary>持有者稳定 ID。</summary>
         public ulong OwnerStableId;
 
-        /// <summary>施法时冻结的主目标。</summary>
-        public ulong PrimaryTargetStableId;
+        /// <summary>这次施法的目标标记。0 表示没有目标标记。</summary>
+        public long CastMark;
 
         /// <summary>已经走过的帧数。开始帧为 0。</summary>
         public int ElapsedFrames;
@@ -58,20 +61,6 @@ namespace RebornFrame.Spell
 
         /// <summary>非零表示这个实例是本帧创建的，本帧不再前进。</summary>
         public byte Born;
-    }
-
-    /// <summary>施法时冻结的一个显式目标。</summary>
-    [InternalBufferCapacity(4)]
-    internal struct SpellExplicitTargetElement : IBufferElementData
-    {
-        /// <summary>所属实例。</summary>
-        public long InstanceId;
-
-        /// <summary>提交顺序。</summary>
-        public int Order;
-
-        /// <summary>目标稳定 ID。</summary>
-        public ulong Target;
     }
 
     /// <summary>施法时冻结的一个瞄准载荷字节。</summary>
@@ -123,14 +112,8 @@ namespace RebornFrame.Spell
         /// <summary>施法者稳定 ID。</summary>
         public ulong OwnerStableId;
 
-        /// <summary>主目标稳定 ID。</summary>
-        public ulong PrimaryTargetStableId;
-
-        /// <summary>显式目标在待处理缓冲中的起点。</summary>
-        public int ExplicitOffset;
-
-        /// <summary>显式目标数量。</summary>
-        public int ExplicitCount;
+        /// <summary>这次施法的目标标记。0 表示没有。</summary>
+        public long CastMark;
 
         /// <summary>瞄准载荷在待处理缓冲中的起点。</summary>
         public int AimOffset;
@@ -149,14 +132,6 @@ namespace RebornFrame.Spell
 
             return RequestId.CompareTo(other.RequestId);
         }
-    }
-
-    /// <summary>等待处理的显式目标。</summary>
-    [InternalBufferCapacity(4)]
-    internal struct PendingSpellExplicitTarget : IBufferElementData
-    {
-        /// <summary>目标稳定 ID。</summary>
-        public ulong Target;
     }
 
     /// <summary>等待处理的瞄准载荷字节。</summary>
@@ -179,6 +154,9 @@ namespace RebornFrame.Spell
 
         /// <summary>持有者稳定 ID。</summary>
         public ulong OwnerStableId;
+
+        /// <summary>这次授予的目标标记。0 表示没有。</summary>
+        public long CastMark;
 
         /// <inheritdoc />
         public int CompareTo(PendingSpellGrantRequest other)

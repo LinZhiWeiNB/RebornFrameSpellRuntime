@@ -151,7 +151,7 @@ namespace RebornFrame.Spell
         /// <summary>来源种类。</summary>
         public GameplayTagSourceKind SourceKind;
 
-        /// <summary>Buff 实例 ID。固有 Tag 为 0。</summary>
+        /// <summary>Buff 实例 ID，或施法标记。固有 Tag 为 0。</summary>
         public long SourceId;
     }
 

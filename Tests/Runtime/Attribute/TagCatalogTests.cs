@@ -240,5 +240,59 @@ namespace RebornFrame.Spell.Tests
                 world.Dispose();
             }
         }
+
+        /// <summary>
+        ///     验证精确、向上、向下和任意匹配。向上命中祖先，向下命中子孙，旁支两边都不命中。
+        /// </summary>
+        [Test]
+        public void Matches_UsesHierarchyDirection()
+        {
+            var nodeA = TagId.Combine(1, 10);
+            var nodeAb = TagId.Combine(1, 11);
+            var nodeAbc = TagId.Combine(1, 12);
+            var nodeAbcd = TagId.Combine(1, 13);
+            var nodeAbcde = TagId.Combine(1, 14);
+            var nodeAbe = TagId.Combine(1, 15);
+            var catalog = TagCatalog.Build(
+                new[]
+                {
+                    new TagDefinition { Id = nodeA, ParentId = LibraryTags.None },
+                    new TagDefinition { Id = nodeAb, ParentId = nodeA },
+                    new TagDefinition { Id = nodeAbc, ParentId = nodeAb },
+                    new TagDefinition { Id = nodeAbcd, ParentId = nodeAbc },
+                    new TagDefinition { Id = nodeAbcde, ParentId = nodeAbcd },
+                    new TagDefinition { Id = nodeAbe, ParentId = nodeAb }
+                },
+                Allocator.Persistent);
+            try
+            {
+                Assert.IsTrue(TagCatalog.Matches(catalog, nodeAbcd, nodeAbcd, TagMatch.Exact));
+                Assert.IsFalse(TagCatalog.Matches(catalog, nodeAbc, nodeAbcd, TagMatch.Exact));
+                Assert.IsFalse(TagCatalog.Matches(catalog, nodeAbcde, nodeAbcd, TagMatch.Exact));
+
+                Assert.IsTrue(TagCatalog.Matches(catalog, nodeA, nodeAbcd, TagMatch.Upward));
+                Assert.IsTrue(TagCatalog.Matches(catalog, nodeAb, nodeAbcd, TagMatch.Upward));
+                Assert.IsTrue(TagCatalog.Matches(catalog, nodeAbc, nodeAbcd, TagMatch.Upward));
+                Assert.IsTrue(TagCatalog.Matches(catalog, nodeAbcd, nodeAbcd, TagMatch.Upward));
+                Assert.IsFalse(TagCatalog.Matches(catalog, nodeAbcde, nodeAbcd, TagMatch.Upward));
+                Assert.IsFalse(TagCatalog.Matches(catalog, nodeAbe, nodeAbcd, TagMatch.Upward));
+
+                Assert.IsTrue(TagCatalog.Matches(catalog, nodeAbcd, nodeAbcd, TagMatch.Downward));
+                Assert.IsTrue(TagCatalog.Matches(catalog, nodeAbcde, nodeAbcd, TagMatch.Downward));
+                Assert.IsFalse(TagCatalog.Matches(catalog, nodeAbc, nodeAbcd, TagMatch.Downward));
+                Assert.IsFalse(TagCatalog.Matches(catalog, nodeAbe, nodeAbcd, TagMatch.Downward));
+                Assert.IsTrue(TagCatalog.Covers(catalog, nodeAbcde, nodeAbcd));
+                Assert.IsFalse(TagCatalog.Covers(catalog, nodeAb, nodeAbcd));
+
+                Assert.IsTrue(TagCatalog.Matches(catalog, nodeA, nodeAbcd, TagMatch.Any));
+                Assert.IsTrue(TagCatalog.Matches(catalog, nodeAbcde, nodeAbcd, TagMatch.Any));
+                Assert.IsFalse(TagCatalog.Matches(catalog, nodeAbe, nodeAbcd, TagMatch.Any));
+                Assert.IsFalse(TagCatalog.Matches(default, nodeA, nodeAbcd, TagMatch.Upward));
+            }
+            finally
+            {
+                catalog.Dispose();
+            }
+        }
     }
 }

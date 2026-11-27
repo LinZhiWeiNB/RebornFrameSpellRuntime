@@ -194,14 +194,14 @@ namespace RebornFrame.Spell
         private const ulong FnvPrime = 1099511628211UL;
 
         /// <summary>
-        ///     校验、排序并冻结 Buff 定义。重复且内容哈希一致的定义会合并。
+        ///     校验、排序并冻结 Buff 定义。同一 ID 以后出现的定义为准。
         /// </summary>
         /// <param name="definitions">待构建的定义。</param>
         /// <param name="allocator">BlobAsset 的持久分配器。</param>
         /// <param name="effects">与目录效果数组顺序一致的参数消息。没有参数时为 null。</param>
         /// <returns>冻结后的 Buff 目录。</returns>
         /// <exception cref="ArgumentNullException">定义列表为 null。</exception>
-        /// <exception cref="ArgumentException">定义非法或同一 ID 冲突。</exception>
+        /// <exception cref="ArgumentException">定义非法。</exception>
         public static BlobAssetReference<BuffCatalogBlob> Build(
             IReadOnlyList<BuffDefinitionData> definitions,
             Allocator allocator,
@@ -209,33 +209,29 @@ namespace RebornFrame.Spell
         {
             if (definitions == null) throw new ArgumentNullException(nameof(definitions));
 
-            var sorted = new List<BuffDefinitionData>(definitions.Count);
+            var lastIndex = new Dictionary<ulong, int>(definitions.Count);
             for (var index = 0; index < definitions.Count; index++)
             {
                 var definition = definitions[index];
                 if (definition == null) throw new ArgumentException("Buff 定义不能为 null。", nameof(definitions));
 
                 Validate(definition);
-                sorted.Add(definition);
+                lastIndex[definition.Id.Value] = index;
             }
 
-            sorted.Sort(DefinitionComparer.Instance);
-            var unique = new List<BuffDefinitionData>(sorted.Count);
-            var hashes = new List<ulong>(sorted.Count);
-            for (var index = 0; index < sorted.Count; index++)
+            var unique = new List<BuffDefinitionData>(lastIndex.Count);
+            for (var index = 0; index < definitions.Count; index++)
             {
-                var definition = sorted[index];
-                var hash = HashDefinition(definition);
-                if (unique.Count == 0 || unique[unique.Count - 1].Id != definition.Id)
-                {
-                    unique.Add(definition);
-                    hashes.Add(hash);
-                    continue;
-                }
+                var definition = definitions[index];
+                if (lastIndex[definition.Id.Value] != index) continue;
 
-                if (hashes[hashes.Count - 1] != hash)
-                    throw new ArgumentException($"Buff {definition.Id} 存在冲突定义。", nameof(definitions));
+                unique.Add(definition);
             }
+
+            unique.Sort(DefinitionComparer.Instance);
+            var hashes = new List<ulong>(unique.Count);
+            for (var index = 0; index < unique.Count; index++)
+                hashes.Add(HashDefinition(unique[index]));
 
             var tags = new List<TagId>();
             var effectBindings = new List<BuffEffectBinding>();
