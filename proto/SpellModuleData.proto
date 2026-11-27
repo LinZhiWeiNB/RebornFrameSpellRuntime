@@ -31,12 +31,17 @@ message SpellData {
 }
 
 // 一条表现轨道。参数字节由 type_id 对应的轨道包解析。
+// 起点和时长用秒。start_frame、duration_frames 只留给旧数据，新数据写 start_seconds、duration_seconds。
 message SpellPresentationTrack {
   uint64 type_id = 1;
   int32 start_frame = 2;
-  // 0 表示跟着法术实例，直到实例结束。
+  // 0 表示跟着法术实例，直到实例结束。旧数据用帧数。
   int32 duration_frames = 3;
   bytes parameters = 4;
+  // 相对施法开始的秒数。
+  float start_seconds = 5;
+  // 0 表示跟着法术实例，直到实例结束。
+  float duration_seconds = 6;
 }
 
 // 时间轴上的一条事件。触发后先看持有者条件，再按标签收集单位，条件通过后提交 Buff。
