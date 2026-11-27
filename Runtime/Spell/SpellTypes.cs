@@ -192,14 +192,14 @@ namespace RebornFrame.Spell
     /// <summary>构建目录时使用的一条表现轨道。</summary>
     public sealed class SpellPresentationTrackAuthoring
     {
-        /// <summary>持续帧数。0 表示跟着法术实例，直到实例结束。</summary>
-        public int DurationFrames;
+        /// <summary>持续秒数。0 表示跟着法术实例，直到实例结束。</summary>
+        public float DurationSeconds;
 
         /// <summary>轨道参数。空数组表示没有参数。</summary>
         public byte[] Parameters = Array.Empty<byte>();
 
-        /// <summary>相对施法开始的延迟帧数。</summary>
-        public int StartFrame;
+        /// <summary>相对施法开始的延迟秒数。</summary>
+        public float StartSeconds;
 
         /// <summary>轨道种类。</summary>
         public SpellPresentationTrackId TypeId;

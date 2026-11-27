@@ -918,6 +918,8 @@ namespace RebornFrame.Spell {
       startFrame_ = other.startFrame_;
       durationFrames_ = other.durationFrames_;
       parameters_ = other.parameters_;
+      startSeconds_ = other.startSeconds_;
+      durationSeconds_ = other.durationSeconds_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -978,6 +980,28 @@ namespace RebornFrame.Spell {
       }
     }
 
+    /// <summary>Field number for the "start_seconds" field.</summary>
+    public const int StartSecondsFieldNumber = 5;
+    private float startSeconds_;
+    /// <summary>相对施法开始的秒数。</summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public float StartSeconds {
+      get { return startSeconds_; }
+      set { startSeconds_ = value; }
+    }
+
+    /// <summary>Field number for the "duration_seconds" field.</summary>
+    public const int DurationSecondsFieldNumber = 6;
+    private float durationSeconds_;
+    /// <summary>持续秒数。0 表示跟着法术实例，直到实例结束。</summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public float DurationSeconds {
+      get { return durationSeconds_; }
+      set { durationSeconds_ = value; }
+    }
+
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
@@ -997,6 +1021,8 @@ namespace RebornFrame.Spell {
       if (StartFrame != other.StartFrame) return false;
       if (DurationFrames != other.DurationFrames) return false;
       if (Parameters != other.Parameters) return false;
+      if (StartSeconds != other.StartSeconds) return false;
+      if (DurationSeconds != other.DurationSeconds) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -1008,6 +1034,8 @@ namespace RebornFrame.Spell {
       if (StartFrame != 0) hash ^= StartFrame.GetHashCode();
       if (DurationFrames != 0) hash ^= DurationFrames.GetHashCode();
       if (Parameters.Length != 0) hash ^= Parameters.GetHashCode();
+      if (StartSeconds != 0F) hash ^= StartSeconds.GetHashCode();
+      if (DurationSeconds != 0F) hash ^= DurationSeconds.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -1042,6 +1070,14 @@ namespace RebornFrame.Spell {
         output.WriteRawTag(34);
         output.WriteBytes(Parameters);
       }
+      if (StartSeconds != 0F) {
+        output.WriteRawTag(45);
+        output.WriteFloat(StartSeconds);
+      }
+      if (DurationSeconds != 0F) {
+        output.WriteRawTag(53);
+        output.WriteFloat(DurationSeconds);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -1068,6 +1104,14 @@ namespace RebornFrame.Spell {
         output.WriteRawTag(34);
         output.WriteBytes(Parameters);
       }
+      if (StartSeconds != 0F) {
+        output.WriteRawTag(45);
+        output.WriteFloat(StartSeconds);
+      }
+      if (DurationSeconds != 0F) {
+        output.WriteRawTag(53);
+        output.WriteFloat(DurationSeconds);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -1089,6 +1133,12 @@ namespace RebornFrame.Spell {
       }
       if (Parameters.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeBytesSize(Parameters);
+      }
+      if (StartSeconds != 0F) {
+        size += 1 + 4;
+      }
+      if (DurationSeconds != 0F) {
+        size += 1 + 4;
       }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -1113,6 +1163,12 @@ namespace RebornFrame.Spell {
       }
       if (other.Parameters.Length != 0) {
         Parameters = other.Parameters;
+      }
+      if (other.StartSeconds != 0F) {
+        StartSeconds = other.StartSeconds;
+      }
+      if (other.DurationSeconds != 0F) {
+        DurationSeconds = other.DurationSeconds;
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
@@ -1145,6 +1201,14 @@ namespace RebornFrame.Spell {
             Parameters = input.ReadBytes();
             break;
           }
+          case 45: {
+            StartSeconds = input.ReadFloat();
+            break;
+          }
+          case 53: {
+            DurationSeconds = input.ReadFloat();
+            break;
+          }
         }
       }
     #endif
@@ -1174,6 +1238,14 @@ namespace RebornFrame.Spell {
           }
           case 34: {
             Parameters = input.ReadBytes();
+            break;
+          }
+          case 45: {
+            StartSeconds = input.ReadFloat();
+            break;
+          }
+          case 53: {
+            DurationSeconds = input.ReadFloat();
             break;
           }
         }

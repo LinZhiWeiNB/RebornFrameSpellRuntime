@@ -116,11 +116,11 @@ namespace RebornFrame.Spell
         /// <summary>轨道种类。</summary>
         public SpellPresentationTrackId TypeId;
 
-        /// <summary>相对施法开始的延迟帧数。</summary>
-        public int StartFrame;
+        /// <summary>相对施法开始的延迟秒数。</summary>
+        public float StartSeconds;
 
-        /// <summary>持续帧数。0 表示跟着法术实例。</summary>
-        public int DurationFrames;
+        /// <summary>持续秒数。0 表示跟着法术实例。</summary>
+        public float DurationSeconds;
 
         /// <summary>参数字节起点。</summary>
         public int ParameterStart;
@@ -331,9 +331,10 @@ namespace RebornFrame.Spell
             if (track.TypeId.Value == 0)
                 throw new ArgumentException($"法术 {definition.Id} 的表现轨道种类无效。");
 
-            if (track.StartFrame < 0 || track.StartFrame > LibrarySpell.MaxFrames
-                || track.DurationFrames < 0 || track.DurationFrames > LibrarySpell.MaxFrames)
-                throw new ArgumentException($"法术 {definition.Id} 的表现轨道帧数超出范围。");
+            if (float.IsNaN(track.StartSeconds) || track.StartSeconds < 0f || track.StartSeconds > LibrarySpell.MaxFrames
+                || float.IsNaN(track.DurationSeconds) || track.DurationSeconds < 0f
+                || track.DurationSeconds > LibrarySpell.MaxFrames)
+                throw new ArgumentException($"法术 {definition.Id} 的表现轨道秒数超出范围。");
 
             if (track.Parameters != null && track.Parameters.Length > LibrarySpell.MaxPresentationParameterBytes)
                 throw new ArgumentException($"法术 {definition.Id} 的表现轨道参数超出范围。");
@@ -522,8 +523,8 @@ namespace RebornFrame.Spell
             var track = new SpellPresentationTrackDefinition
             {
                 TypeId = source.TypeId,
-                StartFrame = source.StartFrame,
-                DurationFrames = source.DurationFrames,
+                StartSeconds = source.StartSeconds,
+                DurationSeconds = source.DurationSeconds,
                 ParameterStart = parameters.Count,
                 ParameterCount = bytes.Length
             };
@@ -617,8 +618,8 @@ namespace RebornFrame.Spell
         private static ulong HashTrack(ulong hash, SpellPresentationTrackAuthoring track)
         {
             hash = Mix(hash, track.TypeId.Value);
-            hash = Mix(hash, (uint)track.StartFrame);
-            hash = Mix(hash, (uint)track.DurationFrames);
+            hash = Mix(hash, (uint)BitConverter.SingleToInt32Bits(track.StartSeconds));
+            hash = Mix(hash, (uint)BitConverter.SingleToInt32Bits(track.DurationSeconds));
             var bytes = track.Parameters ?? Array.Empty<byte>();
             hash = Mix(hash, (uint)bytes.Length);
             for (var index = 0; index < bytes.Length; index++) hash = Mix(hash, bytes[index]);

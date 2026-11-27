@@ -159,8 +159,8 @@ namespace RebornFrame.Spell
                 tracks.Add(new SpellPresentationTrackAuthoring
                 {
                     TypeId = new SpellPresentationTrackId(track.TypeId),
-                    StartFrame = track.StartFrame,
-                    DurationFrames = track.DurationFrames,
+                    StartSeconds = track.StartSeconds,
+                    DurationSeconds = track.DurationSeconds,
                     Parameters = track.Parameters.Length == 0
                         ? Array.Empty<byte>()
                         : track.Parameters.ToByteArray()

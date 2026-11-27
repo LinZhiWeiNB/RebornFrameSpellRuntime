@@ -58,12 +58,12 @@ namespace RebornFrame.Spell
         void Stop(SpellEndReason reason);
 
         /// <summary>
-        ///     把这次播放摆到片段内第 <paramref name="frame" /> 帧。
-        ///     <paramref name="play" /> 为 false 时摆完停住，为 true 时从这一帧继续播放。
+        ///     把这次播放摆到片段内第 <paramref name="time" /> 秒。
+        ///     <paramref name="play" /> 为 false 时摆完停住，为 true 时从这一秒继续播放。
         /// </summary>
-        /// <param name="frame">相对片段起点的帧数，0 是片段第一帧。</param>
+        /// <param name="time">相对片段起点的秒数，0 是片段开头。</param>
         /// <param name="play">摆完后是否继续播放。</param>
-        void Show(int frame, bool play);
+        void Show(float time, bool play);
     }
 
     /// <summary>
@@ -161,31 +161,63 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        ///     按目录里的技能配置，把表现摆到第 <paramref name="frame" /> 帧。
-        ///     只调度这一帧落在片段内的轨道。片段外的轨道会停掉。
-        ///     <paramref name="play" /> 为 false 时各插件摆完暂停，为 true 时从这一帧继续播放。
+        ///     按目录里的技能配置，把全部表现摆到施法开始后的 <paramref name="time" /> 秒。
+        ///     只调度这一秒落在片段内的轨道。片段外的轨道会停掉。
+        ///     <paramref name="play" /> 为 false 时各插件摆完暂停，为 true 时从这一秒继续播放。
         /// </summary>
         /// <param name="catalog">已经冻结的法术目录。</param>
         /// <param name="spellId">要预览的法术。</param>
         /// <param name="ownerStableId">持有者稳定 ID。插件用它找到单位身上的骨架或挂点。</param>
-        /// <param name="frame">相对施法开始的帧数。</param>
+        /// <param name="time">相对施法开始的秒数。</param>
         /// <param name="play">摆完后是否继续播放。</param>
-        public static void ShowFrame(
+        public static void ShowTime(
             BlobAssetReference<SpellCatalogBlob> catalog,
             SpellId spellId,
             ulong ownerStableId,
-            int frame,
+            float time,
             bool play)
         {
+            ShowPreview(catalog, spellId, ownerStableId, time, play, 0, false);
+        }
+
+        /// <summary>
+        ///     只重建并摆正某一种表现轨道，其它种类保持不动。
+        /// </summary>
+        /// <param name="catalog">已经冻结的法术目录。</param>
+        /// <param name="spellId">要预览的法术。</param>
+        /// <param name="ownerStableId">持有者稳定 ID。</param>
+        /// <param name="typeId">要刷新的轨道种类。</param>
+        /// <param name="time">相对施法开始的秒数。</param>
+        /// <param name="play">摆完后是否继续播放。</param>
+        public static void RefreshType(
+            BlobAssetReference<SpellCatalogBlob> catalog,
+            SpellId spellId,
+            ulong ownerStableId,
+            SpellPresentationTrackId typeId,
+            float time,
+            bool play)
+        {
+            ShowPreview(catalog, spellId, ownerStableId, time, play, typeId.Value, true);
+        }
+
+        private static void ShowPreview(
+            BlobAssetReference<SpellCatalogBlob> catalog,
+            SpellId spellId,
+            ulong ownerStableId,
+            float time,
+            bool play,
+            ulong typeId,
+            bool recreate)
+        {
             if (!catalog.IsCreated) throw new ArgumentException("法术目录尚未创建。", nameof(catalog));
-            if (frame < 0) throw new ArgumentOutOfRangeException(nameof(frame), "帧数不能小于 0。");
+            if (float.IsNaN(time) || time < 0f) throw new ArgumentOutOfRangeException(nameof(time), "秒数不能小于 0。");
             if (_frameDuration <= 0f)
-                throw new InvalidOperationException("摆表现帧前要先设置逻辑帧时长。");
+                throw new InvalidOperationException("摆表现前要先设置逻辑帧时长。");
             if (!SpellCatalog.TryFindDefinitionIndex(catalog, spellId, out var definitionIndex))
                 throw new ArgumentException($"法术 {spellId} 不在目录里。", nameof(spellId));
 
             if (_preview == null) _preview = new Preview();
-            if (_preview.Frame < 0 || _preview.SpellId != spellId || _preview.OwnerStableId != ownerStableId)
+            if (_preview.Time < 0f || _preview.SpellId != spellId || _preview.OwnerStableId != ownerStableId)
             {
                 StopPreviewTracks(SpellEndReason.None);
                 _preview.Tracks.Clear();
@@ -195,10 +227,9 @@ namespace RebornFrame.Spell
 
             _preview.Catalog = catalog;
             _preview.DefinitionIndex = definitionIndex;
-            _preview.Frame = frame;
-            _preview.Time = frame * _frameDuration;
+            _preview.Time = time;
             _preview.Playing = play;
-            ReconcilePreview(frame, play, true);
+            ReconcilePreview(time, play, true, typeId, recreate);
         }
 
         /// <summary>
@@ -241,48 +272,58 @@ namespace RebornFrame.Spell
             if (_preview == null || !_preview.Playing || _frameDuration <= 0f || !_preview.Catalog.IsCreated) return;
 
             _preview.Time += deltaSeconds;
-            var frame = (int)(_preview.Time / _frameDuration);
-            if (frame < 0) frame = 0;
-            if (frame == _preview.Frame) return;
-
-            _preview.Frame = frame;
-            ReconcilePreview(frame, true, false);
+            if (_preview.Time < 0f) _preview.Time = 0f;
+            ReconcilePreview(_preview.Time, true, false, 0, false);
         }
 
-        private static void ReconcilePreview(int frame, bool play, bool reshow)
+        private static void ReconcilePreview(float time, bool play, bool reshow, ulong typeId, bool recreate)
         {
             ref var definition = ref _preview.Catalog.Value.Definitions[_preview.DefinitionIndex];
-            var alive = new HashSet<int>();
+            var slots = new Dictionary<ulong, int>();
+            var alive = new HashSet<PreviewKey>();
             for (var index = 0; index < definition.TrackCount; index++)
             {
                 var source = _preview.Catalog.Value.Tracks[definition.TrackStart + index];
-                if (!Covers(frame, source.StartFrame, source.DurationFrames, definition.DurationFrames)) continue;
-                if (!Factories.TryGetValue(source.TypeId.Value, out var factory)) continue;
+                var type = source.TypeId.Value;
+                var slot = 0;
+                if (slots.TryGetValue(type, out var used)) slot = used;
+                slots[type] = slot + 1;
+                if (typeId != 0 && type != typeId) continue;
+                if (!Covers(time, source.StartSeconds, source.DurationSeconds, definition.DurationFrames)) continue;
+                if (!Factories.TryGetValue(type, out var factory)) continue;
 
-                alive.Add(index);
-                var exists = _preview.Tracks.TryGetValue(index, out var player);
+                var key = new PreviewKey(type, slot);
+                alive.Add(key);
+                var exists = _preview.Tracks.TryGetValue(key, out var player);
+                if (exists && recreate)
+                {
+                    player.Stop(SpellEndReason.None);
+                    _preview.Tracks.Remove(key);
+                    exists = false;
+                }
+
                 if (!exists)
                 {
                     var parameters = CopyParameters(_preview.Catalog, source.ParameterStart, source.ParameterCount);
-                    var durationSeconds = source.DurationFrames * _frameDuration;
                     var context = new SpellPresentationContext
                     {
-                        DelaySeconds = source.StartFrame * _frameDuration,
-                        DurationSeconds = source.DurationFrames == 0 ? 0f : durationSeconds,
+                        DelaySeconds = source.StartSeconds,
+                        DurationSeconds = source.DurationSeconds,
                         OwnerStableId = _preview.OwnerStableId,
                         SpellId = _preview.SpellId
                     };
                     player = factory.Create(parameters, context);
-                    _preview.Tracks.Add(index, player);
+                    _preview.Tracks.Add(key, player);
                 }
 
                 if (!exists || reshow)
-                    player.Show(frame - source.StartFrame, play);
+                    player.Show(Math.Max(0f, time - source.StartSeconds), play);
             }
 
-            var remove = new List<int>();
+            var remove = new List<PreviewKey>();
             foreach (var pair in _preview.Tracks)
             {
+                if (typeId != 0 && pair.Key.Type != typeId) continue;
                 if (alive.Contains(pair.Key)) continue;
 
                 pair.Value.Stop(SpellEndReason.None);
@@ -292,11 +333,12 @@ namespace RebornFrame.Spell
             for (var index = 0; index < remove.Count; index++) _preview.Tracks.Remove(remove[index]);
         }
 
-        private static bool Covers(int frame, int startFrame, int durationFrames, int spellDuration)
+        private static bool Covers(float time, float startSeconds, float durationSeconds, int spellDurationFrames)
         {
-            if (frame < startFrame) return false;
-            if (durationFrames > 0) return frame < startFrame + durationFrames;
-            if (spellDuration > 0) return frame < spellDuration;
+            if (time < startSeconds) return false;
+            if (durationSeconds > 0f) return time < startSeconds + durationSeconds;
+            if (spellDurationFrames > 0 && _frameDuration > 0f)
+                return time < spellDurationFrames * _frameDuration;
             return true;
         }
 
@@ -429,11 +471,10 @@ namespace RebornFrame.Spell
                         throw new InvalidOperationException("播放表现轨道前要先设置逻辑帧时长。");
 
                     var parameters = CopyParameters(catalog, track.ParameterStart, track.ParameterCount);
-                    var durationSeconds = track.DurationFrames * _frameDuration;
                     var context = new SpellPresentationContext
                     {
-                        DelaySeconds = track.StartFrame * _frameDuration,
-                        DurationSeconds = track.DurationFrames == 0 ? 0f : durationSeconds,
+                        DelaySeconds = track.StartSeconds,
+                        DurationSeconds = track.DurationSeconds,
                         InstanceId = resolved.InstanceId,
                         OwnerStableId = resolved.OwnerStableId,
                         SpellId = resolved.SpellId
@@ -443,8 +484,8 @@ namespace RebornFrame.Spell
                         InstanceId = resolved.InstanceId,
                         Track = factory.Create(parameters, context),
                         DelayRemaining = context.DelaySeconds,
-                        DurationRemaining = durationSeconds,
-                        FollowInstance = track.DurationFrames == 0
+                        DurationRemaining = track.DurationSeconds,
+                        FollowInstance = track.DurationSeconds == 0f
                     };
                     if (scheduled.DelayRemaining <= 0f)
                     {
@@ -485,16 +526,45 @@ namespace RebornFrame.Spell
             }
         }
 
+        private readonly struct PreviewKey : IEquatable<PreviewKey>
+        {
+            public readonly ulong Type;
+            public readonly int Slot;
+
+            public PreviewKey(ulong type, int slot)
+            {
+                Type = type;
+                Slot = slot;
+            }
+
+            public bool Equals(PreviewKey other)
+            {
+                return Type == other.Type && Slot == other.Slot;
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is PreviewKey other && Equals(other);
+            }
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    return ((int)Type * 397) ^ Slot;
+                }
+            }
+        }
+
         private sealed class Preview
         {
             public BlobAssetReference<SpellCatalogBlob> Catalog;
             public int DefinitionIndex;
-            public int Frame = -1;
             public ulong OwnerStableId;
             public bool Playing;
             public SpellId SpellId;
-            public float Time;
-            public readonly Dictionary<int, ISpellPresentationTrack> Tracks = new();
+            public float Time = -1f;
+            public readonly Dictionary<PreviewKey, ISpellPresentationTrack> Tracks = new();
         }
 
         private sealed class ScheduledTrack
