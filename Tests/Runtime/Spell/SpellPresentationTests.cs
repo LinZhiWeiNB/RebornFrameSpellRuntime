@@ -86,6 +86,32 @@ namespace RebornFrame.Spell.Tests
             Assert.AreEqual(1, _world.EntityManager.GetBuffer<SpellInstanceElement>(caster).Length);
         }
 
+        [Test]
+        public void ShowFrame_CallsClipsCoveringThatFrame()
+        {
+            var early = new List<string>();
+            var late = new List<string>();
+            SpellPresentation.Register(Kind, new RecordingFactory(early));
+            SpellPresentation.Register(Other, new RecordingFactory(late));
+            SpellPresentation.SetFrameDuration(0.5f);
+            Start(Track(Kind, 6, 4, Array.Empty<byte>()), Track(Other, 2, 4, Array.Empty<byte>()));
+            var catalog = _world.EntityManager.CreateEntityQuery(typeof(SpellCatalogReference))
+                .GetSingleton<SpellCatalogReference>().Value;
+
+            SpellPresentation.ShowFrame(catalog, Fireball, 1, 3, false);
+
+            CollectionAssert.AreEqual(new[] { "create:1", "show:1:0" }, late);
+            Assert.AreEqual(0, early.Count);
+
+            SpellPresentation.ShowFrame(catalog, Fireball, 1, 8, true);
+
+            CollectionAssert.AreEqual(new[] { "create:1", "show:1:0", "stop:" + SpellEndReason.None }, late);
+            CollectionAssert.AreEqual(new[] { "create:1", "show:2:1" }, early);
+
+            SpellPresentation.Advance(1f);
+            CollectionAssert.AreEqual(new[] { "create:1", "show:2:1", "stop:" + SpellEndReason.None }, early);
+        }
+
         private void Start(params SpellPresentationTrack[] tracks)
         {
             _world = new World(TestContext.CurrentContext.Test.Name);
@@ -174,6 +200,11 @@ namespace RebornFrame.Spell.Tests
             public void Stop(SpellEndReason reason)
             {
                 _calls.Add("stop:" + reason);
+            }
+
+            public void Show(int frame, bool play)
+            {
+                _calls.Add("show:" + frame + ":" + (play ? "1" : "0"));
             }
         }
     }
