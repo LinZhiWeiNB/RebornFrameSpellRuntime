@@ -429,7 +429,19 @@ namespace RebornFrame.Spell
             {
                 var tag = tags[index];
                 if (tag.SourceKind == GameplayTagSourceKind.Buff && tag.SourceId == instanceId)
+                {
+                    SpellDebug.Report(new SpellDebugNotice
+                    {
+                        Step = SpellDebugStep.TagRemoved,
+                        InstanceId = instanceId,
+                        TargetId = entityManager.HasComponent<SpellStableId>(entity)
+                            ? entityManager.GetComponentData<SpellStableId>(entity).Value
+                            : 0,
+                        TagId = tag.Tag.Value,
+                        Reason = (byte)GameplayTagSourceKind.Buff
+                    });
                     tags.RemoveAtSwapBack(index);
+                }
             }
         }
 
@@ -493,12 +505,42 @@ namespace RebornFrame.Spell
         private static void AddEvent(EntityManager entityManager, Entity entity, in BuffResolvedEvent value)
         {
             entityManager.GetBuffer<BuffResolvedEvent>(entity).Add(value);
+            SpellDebug.Report(SpellDebugNoticeOf(value));
         }
 
         /// <summary>目标单位不存在时，把事件记到目录实体上。</summary>
         private static void AddWorldEvent(EntityManager entityManager, Entity singleton, in BuffResolvedEvent value)
         {
             entityManager.GetBuffer<BuffResolvedEvent>(singleton).Add(value);
+            SpellDebug.Report(SpellDebugNoticeOf(value));
+        }
+
+        private static SpellDebugNotice SpellDebugNoticeOf(in BuffResolvedEvent value)
+        {
+            var step = SpellDebugStep.BuffUpdated;
+            if (value.Kind == BuffResolvedEventKind.CreateApplied)
+                step = SpellDebugStep.BuffApplied;
+            else if (value.Kind == BuffResolvedEventKind.CreateRejected)
+                step = SpellDebugStep.BuffRejected;
+            else if (value.Kind == BuffResolvedEventKind.Triggered)
+                step = SpellDebugStep.BuffTriggered;
+            else if (value.Kind == BuffResolvedEventKind.RemoveApplied)
+                step = SpellDebugStep.BuffRemoved;
+            else if (value.Kind == BuffResolvedEventKind.RemoveRejected)
+                step = SpellDebugStep.BuffRemoveRejected;
+            return new SpellDebugNotice
+            {
+                Step = step,
+                DefinitionId = value.DefinitionId.Value,
+                InstanceId = value.InstanceId,
+                OwnerId = value.SourceStableId,
+                TargetId = value.TargetStableId,
+                Count = value.NewStack,
+                Reason = value.Kind == BuffResolvedEventKind.RemoveApplied
+                    || value.Kind == BuffResolvedEventKind.RemoveRejected
+                    ? (byte)value.RemoveReason
+                    : (byte)value.UpdateReason
+            };
         }
     }
 

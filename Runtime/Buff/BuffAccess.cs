@@ -112,6 +112,59 @@ namespace RebornFrame.Spell
                 SourceKind = GameplayTagSourceKind.Intrinsic,
                 SourceId = 0
             });
+            SpellDebug.Report(new SpellDebugNotice
+            {
+                Step = SpellDebugStep.TagAdded,
+                TargetId = entityManager.HasComponent<SpellStableId>(entity)
+                    ? entityManager.GetComponentData<SpellStableId>(entity).Value
+                    : 0,
+                TagId = tag.Value,
+                Reason = (byte)GameplayTagSourceKind.Intrinsic
+            });
+            return true;
+        }
+
+        /// <summary>
+        ///     给单位挂上一条属于某次施法的 Tag。施法结束时随这次识别码一起移除。
+        /// </summary>
+        /// <param name="entityManager">单位所在 World 的实体管理器。</param>
+        /// <param name="entity">已经初始化 Buff 的单位。</param>
+        /// <param name="tag">要授予的 Tag。</param>
+        /// <param name="castMark">这次施法的识别码。</param>
+        /// <returns>单位有效、Tag 有效且识别码有效时为 true。</returns>
+        public static bool TryAddCastTag(EntityManager entityManager, Entity entity, TagId tag, long castMark)
+        {
+            if (!entityManager.HasBuffer<GameplayTagContribution>(entity)
+                || tag == LibraryTags.None
+                || castMark <= 0)
+                return false;
+
+            var tags = entityManager.GetBuffer<GameplayTagContribution>(entity);
+            for (var index = 0; index < tags.Length; index++)
+            {
+                var contribution = tags[index];
+                if (contribution.SourceKind == GameplayTagSourceKind.SpellCast
+                    && contribution.SourceId == castMark
+                    && contribution.Tag == tag)
+                    return true;
+            }
+
+            tags.Add(new GameplayTagContribution
+            {
+                Tag = tag,
+                SourceKind = GameplayTagSourceKind.SpellCast,
+                SourceId = castMark
+            });
+            SpellDebug.Report(new SpellDebugNotice
+            {
+                Step = SpellDebugStep.TagAdded,
+                TargetId = entityManager.HasComponent<SpellStableId>(entity)
+                    ? entityManager.GetComponentData<SpellStableId>(entity).Value
+                    : 0,
+                TagId = tag.Value,
+                CastMark = castMark,
+                Reason = (byte)GameplayTagSourceKind.SpellCast
+            });
             return true;
         }
 

@@ -4,7 +4,7 @@ using FixedMathSharp;
 namespace RebornFrame.Spell
 {
     /// <summary>
-    ///     由作者 ID 和作者内部编号组成的全局属性标识。
+    ///     由模组 ID 和模组内部编号组成的全局属性标识。
     /// </summary>
     public readonly struct AttributeId : IEquatable<AttributeId>, IComparable<AttributeId>
     {
@@ -21,20 +21,20 @@ namespace RebornFrame.Spell
         }
 
         /// <summary>
-        ///     组合作者 ID 和作者内部编号。
+        ///     组合模组 ID 和模组内部编号。
         /// </summary>
-        /// <param name="authorId">作者 ID。</param>
-        /// <param name="localId">作者内部编号。</param>
+        /// <param name="authorId">模组 ID。</param>
+        /// <param name="localId">模组内部编号。</param>
         /// <returns>组合后的属性标识。</returns>
         public static AttributeId Combine(uint authorId, uint localId)
         {
             return new AttributeId(((ulong)authorId << 32) | localId);
         }
 
-        /// <summary>作者 ID。</summary>
+        /// <summary>模组 ID。</summary>
         public uint AuthorId => (uint)(Value >> 32);
 
-        /// <summary>作者内部编号。</summary>
+        /// <summary>模组内部编号。</summary>
         public uint LocalId => (uint)Value;
 
         /// <inheritdoc />

@@ -1,7 +1,7 @@
 namespace RebornFrame.Spell
 {
     /// <summary>
-    ///     作者 0、本地编号 0–99 的库保留条件类型。
+    ///     模组 ID 0、本地编号 0–99 的库保留条件类型。
     ///     这些编号不留给项目注册自己的条件；未列出的槽位保持空置。
     /// </summary>
     /// <remarks>
@@ -43,10 +43,10 @@ namespace RebornFrame.Spell
     /// </remarks>
     public static class LibraryCondition
     {
-        /// <summary>库使用的作者 ID。</summary>
+        /// <summary>库使用的模组 ID。</summary>
         public const uint AuthorId = 0;
 
-        /// <summary>作者 0 下保留给库的本地编号数量。</summary>
+        /// <summary>模组 ID 0 下保留给库的本地编号数量。</summary>
         public const uint ReservedLocalIdCount = 100;
 
         /// <summary>一条条件参数的最大字节数。</summary>
@@ -71,7 +71,7 @@ namespace RebornFrame.Spell
         public static ConditionTypeId Tag => ConditionTypeId.Combine(AuthorId, 5);
 
         /// <summary>
-        ///     判断条件类型是否落在作者 0 的库保留编号内。
+        ///     判断条件类型是否落在模组 ID 0 的库保留编号内。
         /// </summary>
         /// <param name="id">待检查的条件类型。</param>
         /// <returns>属于保留区间时为 true。</returns>

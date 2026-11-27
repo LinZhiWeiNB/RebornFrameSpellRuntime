@@ -441,12 +441,26 @@ namespace RebornFrame.Spell
             var tags =
                 entityManager.GetBuffer<GameplayTagContribution>(entity);
             for (var index = 0; index < definition.GrantedTagCount; index++)
+            {
+                var tag = catalog.Value.Tags[definition.GrantedTagStart + index];
                 tags.Add(new GameplayTagContribution
                 {
-                    Tag = catalog.Value.Tags[definition.GrantedTagStart + index],
+                    Tag = tag,
                     SourceKind = GameplayTagSourceKind.Buff,
                     SourceId = instanceId
                 });
+                SpellDebug.Report(new SpellDebugNotice
+                {
+                    Step = SpellDebugStep.TagAdded,
+                    DefinitionId = definition.Id.Value,
+                    InstanceId = instanceId,
+                    TargetId = entityManager.HasComponent<SpellStableId>(entity)
+                        ? entityManager.GetComponentData<SpellStableId>(entity).Value
+                        : 0,
+                    TagId = tag.Value,
+                    Reason = (byte)GameplayTagSourceKind.Buff
+                });
+            }
         }
 
         /// <summary>把全局、目标或来源范围解析成精确时钟。范围要求的稳定 ID 为 0 时失败。</summary>

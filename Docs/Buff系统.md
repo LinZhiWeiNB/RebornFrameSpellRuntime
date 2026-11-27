@@ -14,7 +14,7 @@ Buff 流水线以 Unity Entities 的单位实体为运行时载体。Buff 定义
 BuffId id = BuffId.Combine(authorId, localId);
 ```
 
-作者 0 的本地编号 0–99 由库保留，外部配置不得占用。
+模组 ID 0 的本地编号 0–99 由库保留，外部配置不得占用。
 
 单位实体带 `SpellStableId`。它是非零 `ulong`，在一个 World 的当前战斗内唯一且不复用。跨实体引用、网络和排序都使用它。
 
@@ -170,7 +170,7 @@ public static class DamageEffect
 - `GameBuffEffectDispatcher.g.cs`。它按 `BuffEffectId` 做静态 `switch`，用生成的解码代码调用 `Apply`。分发在主线程执行，不使用反射、委托注册或闭包。自定义效果方法首版不进入 Burst。
 - `buff-effects.schema.json`。独立编辑器只读这份 manifest，不加载 Unity 或游戏程序集。内容包含效果 Id、版本、schema 哈希、字段 Id、线类型、默认值、范围、枚举项、引用目录和显示用本地化 Key。
 
-编辑器保存 `EffectId + PayloadVersion + {FieldId: Value}`。Unity 烘焙阶段完成旧版本迁移和引用校验，再写成小端、固定宽度、无 padding 的载荷。运行时只接受与生成分发器哈希一致的目录。字段重排不改变 `FieldId`，因此不破坏已有作者数据。
+编辑器保存 `EffectId + PayloadVersion + {FieldId: Value}`。Unity 烘焙阶段完成旧版本迁移和引用校验，再写成小端、固定宽度、无 padding 的载荷。运行时只接受与生成分发器哈希一致的目录。字段重排不改变 `FieldId`，因此不破坏已有模组数据。
 
 `BuffEffectContext` 提供本次请求的只读快照：实例、来源、目标、层数、阶段、原因、信号载荷、属性值和 Gameplay Tag。它还可以：
 
@@ -207,5 +207,5 @@ Buff 效果提交的属性命令在同 tick 的属性批次结算。属性事件
 - 两个实例授予同一 Tag，移除其中一个后另一个的 Tag 仍在。
 - 同一 tick 创建 A 后被 B 替换，效果顺序固定，属性修改器最终不残留。
 - 调换系统遍历顺序不改变效果和事件顺序。
-- 字段重排后旧作者数据仍能烘焙。schema 哈希不一致时，烘焙或启动失败。
+- 字段重排后旧模组数据仍能烘焙。schema 哈希不一致时，烘焙或启动失败。
 - 容量预热后，框架热路径不产生托管 GC。临时排序和请求存储复用原生容器或 DynamicBuffer 容量。

@@ -32,12 +32,25 @@ namespace RebornFrame.Spell
         /// <returns>属性请求成功入队时为 true。</returns>
         public bool TryRequestCurrentValue(AttributeId attributeId, long deltaBits)
         {
-            return TryFindTarget(out var target)
-                   && AttributeAccess.TryRequestCurrentValueChange(
-                       _entityManager,
-                       target,
-                       attributeId,
-                       deltaBits);
+            if (!TryFindTarget(out var target)
+                || !AttributeAccess.TryRequestCurrentValueChange(
+                    _entityManager,
+                    target,
+                    attributeId,
+                    deltaBits))
+                return false;
+
+            SpellDebug.Report(new SpellDebugNotice
+            {
+                Step = SpellDebugStep.EffectValueRequest,
+                DefinitionId = Request.DefinitionId.Value,
+                InstanceId = Request.InstanceId,
+                OwnerId = Request.SourceStableId,
+                TargetId = Request.TargetStableId,
+                TagId = attributeId.Value,
+                After = deltaBits
+            });
+            return true;
         }
 
         /// <summary>
@@ -71,6 +84,17 @@ namespace RebornFrame.Spell
                 target,
                 Request.InstanceId,
                 Request.TargetStableId);
+            SpellDebug.Report(new SpellDebugNotice
+            {
+                Step = SpellDebugStep.EffectModifier,
+                DefinitionId = Request.DefinitionId.Value,
+                InstanceId = Request.InstanceId,
+                OwnerId = Request.SourceStableId,
+                TargetId = Request.TargetStableId,
+                Reason = (byte)channel,
+                After = valueBits,
+                Count = weight
+            });
             return true;
         }
 
@@ -90,6 +114,16 @@ namespace RebornFrame.Spell
                 Tag = tag,
                 SourceKind = GameplayTagSourceKind.Buff,
                 SourceId = Request.InstanceId
+            });
+            SpellDebug.Report(new SpellDebugNotice
+            {
+                Step = SpellDebugStep.TagAdded,
+                DefinitionId = Request.DefinitionId.Value,
+                InstanceId = Request.InstanceId,
+                OwnerId = Request.SourceStableId,
+                TargetId = Request.TargetStableId,
+                TagId = tag.Value,
+                Reason = (byte)GameplayTagSourceKind.Buff
             });
             return true;
         }
@@ -113,6 +147,16 @@ namespace RebornFrame.Spell
                     && contribution.Tag == tag)
                 {
                     tags.RemoveAtSwapBack(index);
+                    SpellDebug.Report(new SpellDebugNotice
+                    {
+                        Step = SpellDebugStep.TagRemoved,
+                        DefinitionId = Request.DefinitionId.Value,
+                        InstanceId = Request.InstanceId,
+                        OwnerId = Request.SourceStableId,
+                        TargetId = Request.TargetStableId,
+                        TagId = tag.Value,
+                        Reason = (byte)GameplayTagSourceKind.Buff
+                    });
                     return true;
                 }
             }

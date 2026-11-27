@@ -636,7 +636,7 @@ namespace RebornFrame.Spell.Tests
         private int _dispatcherId;
 
         /// <summary>
-        ///     登记测试效果作者 1、本地编号 50。
+        ///     登记测试效果模组 ID 1、本地编号 50。
         /// </summary>
         protected override void OnCreate()
         {

@@ -220,7 +220,13 @@ namespace RebornFrame.Spell
                 if (!SliceFits(request.AimOffset, request.AimLength, _aim.Length))
                 {
                     RemoveCastMark(entityManager, request.CastMark);
-                    RejectStart(entityManager, singleton, request.RequestId, request.SpellId, request.OwnerStableId);
+                    RejectStart(
+                        entityManager,
+                        singleton,
+                        request.RequestId,
+                        request.SpellId,
+                        request.OwnerStableId,
+                        SpellDebugReason.BadAim);
                     continue;
                 }
 
@@ -291,7 +297,13 @@ namespace RebornFrame.Spell
                 || !SpellCatalog.TryFindDefinitionIndex(catalog, spellId, out var definitionIndex))
             {
                 RemoveCastMark(entityManager, castMark);
-                RejectStart(entityManager, singleton, requestId, spellId, ownerStableId);
+                RejectStart(
+                    entityManager,
+                    singleton,
+                    requestId,
+                    spellId,
+                    ownerStableId,
+                    unitIndex < 0 ? SpellDebugReason.MissingOwner : SpellDebugReason.MissingSpell);
                 return;
             }
 
@@ -309,8 +321,19 @@ namespace RebornFrame.Spell
                     definition.AdmissionStart,
                     definition.AdmissionCount))
             {
+                var reason = SpellDebugReason.WrongActivation;
+                if (definition.Activation == expected)
+                {
+                    if (expected == SpellActivation.Passive && HasSpell(entityManager, entity, spellId))
+                        reason = SpellDebugReason.AlreadyGranted;
+                    else if (expected == SpellActivation.Active && CooldownRemain(entityManager, entity, spellId) > 0)
+                        reason = SpellDebugReason.SpellCooling;
+                    else
+                        reason = SpellDebugReason.AdmissionFailed;
+                }
+
                 RemoveCastMark(entityManager, castMark);
-                RejectStart(entityManager, entity, requestId, spellId, ownerStableId);
+                RejectStart(entityManager, entity, requestId, spellId, ownerStableId, reason);
                 return;
             }
 
@@ -344,6 +367,15 @@ namespace RebornFrame.Spell
                 OwnerStableId = ownerStableId,
                 Kind = SpellResolvedEventKind.Started,
                 EventIndex = LibrarySpell.NoEventIndex
+            });
+            SpellDebug.Report(new SpellDebugNotice
+            {
+                Step = SpellDebugStep.SpellStarted,
+                DefinitionId = spellId.Value,
+                InstanceId = instanceId,
+                EventIndex = LibrarySpell.NoEventIndex,
+                OwnerId = ownerStableId,
+                CastMark = castMark
             });
             FireStart(entityManager, singleton, entity, catalog, tags, instance, requestId);
         }
@@ -481,7 +513,20 @@ namespace RebornFrame.Spell
                               || evt.Trigger == SpellEventTrigger.EveryFrames
                               && evt.Frame > 0
                               && instance.ElapsedFrames % evt.Frame == 0;
-                if (!matched || !EventReady(entityManager, entity, instance.InstanceId, eventIndex)) continue;
+                if (!matched) continue;
+                if (!EventReady(entityManager, entity, instance.InstanceId, eventIndex))
+                {
+                    SpellDebug.Report(new SpellDebugNotice
+                    {
+                        Step = SpellDebugStep.EventCooling,
+                        DefinitionId = instance.SpellId.Value,
+                        InstanceId = instance.InstanceId,
+                        EventIndex = eventIndex,
+                        OwnerId = instance.OwnerStableId,
+                        CastMark = instance.CastMark
+                    });
+                    continue;
+                }
 
                 if (RunEvent(
                         entityManager,
@@ -560,10 +605,21 @@ namespace RebornFrame.Spell
             for (var eventIndex = 0; eventIndex < eventCount; eventIndex++)
             {
                 var evt = catalog.Value.Events[eventStart + eventIndex];
-                if (evt.Trigger != SpellEventTrigger.Signal
-                    || evt.SignalId != signal.SignalId
-                    || !EventReady(entityManager, entity, instance.InstanceId, eventIndex))
+                if (evt.Trigger != SpellEventTrigger.Signal || evt.SignalId != signal.SignalId)
                     continue;
+                if (!EventReady(entityManager, entity, instance.InstanceId, eventIndex))
+                {
+                    SpellDebug.Report(new SpellDebugNotice
+                    {
+                        Step = SpellDebugStep.EventCooling,
+                        DefinitionId = instance.SpellId.Value,
+                        InstanceId = instance.InstanceId,
+                        EventIndex = eventIndex,
+                        OwnerId = instance.OwnerStableId,
+                        CastMark = instance.CastMark
+                    });
+                    continue;
+                }
 
                 if (RunEvent(
                         entityManager,
@@ -642,18 +698,64 @@ namespace RebornFrame.Spell
                     evt.ConditionStart,
                     evt.ConditionCount))
             {
-                PublishSkipped(entityManager, entity, instance, eventIndex, requestId);
+                PublishSkipped(
+                    entityManager,
+                    entity,
+                    instance,
+                    eventIndex,
+                    requestId,
+                    SpellDebugReason.OwnerConditionFailed);
                 return false;
             }
 
             _targets.Clear();
             CollectTags(entityManager, tags, catalog, evt, instance.CastMark);
+#if DEBUG
+            var picked = new ulong[_targets.Length];
+            for (var pick = 0; pick < picked.Length; pick++)
+                picked[pick] = _targets[pick];
+#endif
             ConfirmConditions(entityManager, entity, catalog, evt);
             if (_targets.Length == 0)
             {
-                PublishSkipped(entityManager, entity, instance, eventIndex, requestId);
+                var reason = SpellDebugReason.NoTagHit;
+                if (evt.TagCount == 0)
+                    reason = SpellDebugReason.NoTagQuery;
+                else if (evt.IgnoreCastMask == 0 && instance.CastMark <= 0)
+                    reason = SpellDebugReason.NoCastMark;
+#if DEBUG
+                else if (picked.Length > 0)
+                    reason = SpellDebugReason.ConditionsRejected;
+#endif
+                PublishSkipped(entityManager, entity, instance, eventIndex, requestId, reason);
                 return false;
             }
+
+#if DEBUG
+            for (var pick = 0; pick < picked.Length; pick++)
+            {
+                var target = picked[pick];
+                var passed = false;
+                for (var kept = 0; kept < _targets.Length; kept++)
+                {
+                    if (_targets[kept] != target) continue;
+                    passed = true;
+                    break;
+                }
+
+                SpellDebug.Report(new SpellDebugNotice
+                {
+                    Step = SpellDebugStep.TagHit,
+                    DefinitionId = instance.SpellId.Value,
+                    InstanceId = instance.InstanceId,
+                    EventIndex = eventIndex,
+                    OwnerId = instance.OwnerStableId,
+                    TargetId = target,
+                    CastMark = instance.CastMark,
+                    Passed = passed ? (byte)1 : (byte)0
+                });
+            }
+#endif
 
             var targetCount = _targets.Length;
             for (var targetIndex = 0; targetIndex < targetCount; targetIndex++)
@@ -675,6 +777,17 @@ namespace RebornFrame.Spell
                 Kind = SpellResolvedEventKind.EventApplied,
                 EventIndex = eventIndex,
                 TargetCount = targetCount
+            });
+            SpellDebug.Report(new SpellDebugNotice
+            {
+                Step = SpellDebugStep.EventApplied,
+                DefinitionId = instance.SpellId.Value,
+                InstanceId = instance.InstanceId,
+                EventIndex = eventIndex,
+                OwnerId = instance.OwnerStableId,
+                CastMark = instance.CastMark,
+                Count = targetCount,
+                Passed = 1
             });
             return true;
         }
@@ -838,6 +951,16 @@ namespace RebornFrame.Spell
                 Kind = SpellResolvedEventKind.Ended,
                 EventIndex = LibrarySpell.NoEventIndex,
                 EndReason = reason
+            });
+            SpellDebug.Report(new SpellDebugNotice
+            {
+                Step = SpellDebugStep.SpellEnded,
+                DefinitionId = instance.SpellId.Value,
+                InstanceId = instance.InstanceId,
+                EventIndex = LibrarySpell.NoEventIndex,
+                OwnerId = instance.OwnerStableId,
+                CastMark = instance.CastMark,
+                Reason = (byte)reason
             });
             // 走完、取消、收回都从这里结束，并清掉标记等于这次施法 ID 的 Tag。
             RemoveInstance(entityManager, entity, instance.InstanceId);
@@ -1022,6 +1145,14 @@ namespace RebornFrame.Spell
                         || contribution.SourceId != castMark)
                         continue;
 
+                    SpellDebug.Report(new SpellDebugNotice
+                    {
+                        Step = SpellDebugStep.TagRemoved,
+                        TargetId = _units[unitIndex].StableId,
+                        TagId = contribution.Tag.Value,
+                        CastMark = castMark,
+                        Reason = (byte)GameplayTagSourceKind.SpellCast
+                    });
                     buffer.RemoveAt(index);
                 }
             }
@@ -1124,7 +1255,8 @@ namespace RebornFrame.Spell
             Entity owner,
             ulong requestId,
             SpellId spellId,
-            ulong ownerStableId)
+            ulong ownerStableId,
+            SpellDebugReason reason)
         {
             Publish(entityManager, owner, owner, new SpellResolvedEvent
             {
@@ -1133,6 +1265,14 @@ namespace RebornFrame.Spell
                 OwnerStableId = ownerStableId,
                 Kind = SpellResolvedEventKind.StartRejected,
                 EventIndex = LibrarySpell.NoEventIndex
+            });
+            SpellDebug.Report(new SpellDebugNotice
+            {
+                Step = SpellDebugStep.SpellRejected,
+                DefinitionId = spellId.Value,
+                EventIndex = LibrarySpell.NoEventIndex,
+                OwnerId = ownerStableId,
+                Reason = (byte)reason
             });
         }
 
@@ -1152,6 +1292,15 @@ namespace RebornFrame.Spell
                 EventIndex = LibrarySpell.NoEventIndex,
                 EndReason = request.Reason
             });
+            SpellDebug.Report(new SpellDebugNotice
+            {
+                Step = SpellDebugStep.EndRejected,
+                DefinitionId = request.SpellId.Value,
+                InstanceId = request.InstanceId,
+                EventIndex = LibrarySpell.NoEventIndex,
+                OwnerId = ownerStableId,
+                Reason = (byte)request.Reason
+            });
         }
 
         private void PublishSkipped(
@@ -1159,7 +1308,8 @@ namespace RebornFrame.Spell
             Entity entity,
             SpellInstanceElement instance,
             int eventIndex,
-            ulong requestId)
+            ulong requestId,
+            SpellDebugReason reason)
         {
             Publish(entityManager, entity, entity, new SpellResolvedEvent
             {
@@ -1169,6 +1319,16 @@ namespace RebornFrame.Spell
                 OwnerStableId = instance.OwnerStableId,
                 Kind = SpellResolvedEventKind.EventSkipped,
                 EventIndex = eventIndex
+            });
+            SpellDebug.Report(new SpellDebugNotice
+            {
+                Step = SpellDebugStep.EventSkipped,
+                DefinitionId = instance.SpellId.Value,
+                InstanceId = instance.InstanceId,
+                EventIndex = eventIndex,
+                OwnerId = instance.OwnerStableId,
+                CastMark = instance.CastMark,
+                Reason = (byte)reason
             });
         }
 

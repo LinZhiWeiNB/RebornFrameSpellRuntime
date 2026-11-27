@@ -95,7 +95,19 @@ namespace RebornFrame.Spell
             {
                 var tag = tags[index];
                 if (tag.SourceKind == GameplayTagSourceKind.Buff && tag.SourceId == instanceId)
+                {
+                    SpellDebug.Report(new SpellDebugNotice
+                    {
+                        Step = SpellDebugStep.TagRemoved,
+                        InstanceId = instanceId,
+                        TargetId = entityManager.HasComponent<SpellStableId>(entity)
+                            ? entityManager.GetComponentData<SpellStableId>(entity).Value
+                            : 0,
+                        TagId = tag.Tag.Value,
+                        Reason = (byte)GameplayTagSourceKind.Buff
+                    });
                     tags.RemoveAtSwapBack(index);
+                }
             }
         }
 
