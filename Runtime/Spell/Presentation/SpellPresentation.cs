@@ -59,6 +59,14 @@ namespace RebornFrame.Spell
         /// </summary>
         /// <param name="reason">停止原因。</param>
         void Stop(SpellEndReason reason);
+
+        /// <summary>
+        ///     把这次播放摆到片段内第 <paramref name="frame" /> 帧。
+        ///     <paramref name="play" /> 为 false 时摆完停住，为 true 时从这一帧继续播放。
+        /// </summary>
+        /// <param name="frame">相对片段起点的帧数，0 是片段第一帧。</param>
+        /// <param name="play">摆完后是否继续播放。</param>
+        void Show(int frame, bool play);
     }
 
     /// <summary>
@@ -68,7 +76,11 @@ namespace RebornFrame.Spell
     {
         private static readonly Dictionary<ulong, ISpellPresentationTrackFactory> Factories = new();
         private static readonly Dictionary<ulong, Runtime> Runtimes = new();
+        private static Preview _preview;
         private static float _frameDuration;
+
+        /// <summary>一个逻辑帧的秒数。还没设置时为 0。</summary>
+        public static float FrameDuration => _frameDuration;
 
         /// <summary>
         ///     注册一种轨道。官方轨道包在加载时注册，游戏也可以注册自己的种类。
@@ -148,6 +160,48 @@ namespace RebornFrame.Spell
             if (deltaSeconds < 0f) throw new ArgumentOutOfRangeException(nameof(deltaSeconds), "表现推进秒数不能小于 0。");
 
             foreach (var runtime in Runtimes.Values) runtime.Advance(deltaSeconds);
+            AdvancePreview(deltaSeconds);
+        }
+
+        /// <summary>
+        ///     按目录里的技能配置，把表现摆到第 <paramref name="frame" /> 帧。
+        ///     只调度这一帧落在片段内的轨道。片段外的轨道会停掉。
+        ///     <paramref name="play" /> 为 false 时各插件摆完暂停，为 true 时从这一帧继续播放。
+        /// </summary>
+        /// <param name="catalog">已经冻结的法术目录。</param>
+        /// <param name="spellId">要预览的法术。</param>
+        /// <param name="ownerStableId">持有者稳定 ID。插件用它找到单位身上的骨架或挂点。</param>
+        /// <param name="frame">相对施法开始的帧数。</param>
+        /// <param name="play">摆完后是否继续播放。</param>
+        public static void ShowFrame(
+            BlobAssetReference<SpellCatalogBlob> catalog,
+            SpellId spellId,
+            ulong ownerStableId,
+            int frame,
+            bool play)
+        {
+            if (!catalog.IsCreated) throw new ArgumentException("法术目录尚未创建。", nameof(catalog));
+            if (frame < 0) throw new ArgumentOutOfRangeException(nameof(frame), "帧数不能小于 0。");
+            if (_frameDuration <= 0f)
+                throw new InvalidOperationException("摆表现帧前要先设置逻辑帧时长。");
+            if (!SpellCatalog.TryFindDefinitionIndex(catalog, spellId, out var definitionIndex))
+                throw new ArgumentException($"法术 {spellId} 不在目录里。", nameof(spellId));
+
+            if (_preview == null) _preview = new Preview();
+            if (_preview.Frame < 0 || _preview.SpellId != spellId || _preview.OwnerStableId != ownerStableId)
+            {
+                StopPreviewTracks(SpellEndReason.None);
+                _preview.Tracks.Clear();
+                _preview.SpellId = spellId;
+                _preview.OwnerStableId = ownerStableId;
+            }
+
+            _preview.Catalog = catalog;
+            _preview.DefinitionIndex = definitionIndex;
+            _preview.Frame = frame;
+            _preview.Time = frame * _frameDuration;
+            _preview.Playing = play;
+            ReconcilePreview(frame, play, true);
         }
 
         /// <summary>
@@ -155,6 +209,8 @@ namespace RebornFrame.Spell
         /// </summary>
         public static void Reset()
         {
+            StopPreviewTracks(SpellEndReason.None);
+            _preview = null;
             foreach (var runtime in Runtimes.Values) runtime.StopAll(SpellEndReason.None);
 
             Runtimes.Clear();
@@ -181,6 +237,79 @@ namespace RebornFrame.Spell
             if (!Runtimes.TryGetValue(world.SequenceNumber, out var runtime)) return;
 
             runtime.Dispatch(world.EntityManager);
+        }
+
+        private static void AdvancePreview(float deltaSeconds)
+        {
+            if (_preview == null || !_preview.Playing || _frameDuration <= 0f || !_preview.Catalog.IsCreated) return;
+
+            _preview.Time += deltaSeconds;
+            var frame = (int)(_preview.Time / _frameDuration);
+            if (frame < 0) frame = 0;
+            if (frame == _preview.Frame) return;
+
+            _preview.Frame = frame;
+            ReconcilePreview(frame, true, false);
+        }
+
+        private static void ReconcilePreview(int frame, bool play, bool reshow)
+        {
+            ref var definition = ref _preview.Catalog.Value.Definitions[_preview.DefinitionIndex];
+            var alive = new HashSet<int>();
+            for (var index = 0; index < definition.TrackCount; index++)
+            {
+                var source = _preview.Catalog.Value.Tracks[definition.TrackStart + index];
+                if (!Covers(frame, source.StartFrame, source.DurationFrames, definition.DurationFrames)) continue;
+                if (!Factories.TryGetValue(source.TypeId.Value, out var factory)) continue;
+
+                alive.Add(index);
+                var exists = _preview.Tracks.TryGetValue(index, out var player);
+                if (!exists)
+                {
+                    var parameters = CopyParameters(_preview.Catalog, source.ParameterStart, source.ParameterCount);
+                    var durationSeconds = source.DurationFrames * _frameDuration;
+                    var context = new SpellPresentationContext
+                    {
+                        DelaySeconds = source.StartFrame * _frameDuration,
+                        DurationSeconds = source.DurationFrames == 0 ? 0f : durationSeconds,
+                        OwnerStableId = _preview.OwnerStableId,
+                        SpellId = _preview.SpellId
+                    };
+                    player = factory.Create(parameters, context);
+                    _preview.Tracks.Add(index, player);
+                }
+
+                if (!exists || reshow)
+                    player.Show(frame - source.StartFrame, play);
+            }
+
+            var remove = new List<int>();
+            foreach (var pair in _preview.Tracks)
+            {
+                if (alive.Contains(pair.Key)) continue;
+
+                pair.Value.Stop(SpellEndReason.None);
+                remove.Add(pair.Key);
+            }
+
+            for (var index = 0; index < remove.Count; index++) _preview.Tracks.Remove(remove[index]);
+        }
+
+        private static bool Covers(int frame, int startFrame, int durationFrames, int spellDuration)
+        {
+            if (frame < startFrame) return false;
+            if (durationFrames > 0) return frame < startFrame + durationFrames;
+            if (spellDuration > 0) return frame < spellDuration;
+            return true;
+        }
+
+        private static void StopPreviewTracks(SpellEndReason reason)
+        {
+            if (_preview == null) return;
+
+            foreach (var track in _preview.Tracks.Values) track.Stop(reason);
+            _preview.Tracks.Clear();
+            _preview.Playing = false;
         }
 
         private static byte[] CopyParameters(BlobAssetReference<SpellCatalogBlob> catalog, int start, int count)
@@ -358,6 +487,18 @@ namespace RebornFrame.Spell
 
                 if (write < _tracks.Count) _tracks.RemoveRange(write, _tracks.Count - write);
             }
+        }
+
+        private sealed class Preview
+        {
+            public BlobAssetReference<SpellCatalogBlob> Catalog;
+            public int DefinitionIndex;
+            public int Frame = -1;
+            public ulong OwnerStableId;
+            public bool Playing;
+            public SpellId SpellId;
+            public float Time;
+            public readonly Dictionary<int, ISpellPresentationTrack> Tracks = new();
         }
 
         private sealed class ScheduledTrack
